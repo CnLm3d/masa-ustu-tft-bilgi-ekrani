@@ -1,6 +1,6 @@
 #include "ui_common.h"
-#include "config.h"
 #include "fonts/SegoeUI14TR.h"
+#include "fonts/SegoeUIBold18TR.h"
 
 namespace {
 size_t nextUtf8Boundary(const String& s, size_t idx) {
@@ -33,27 +33,22 @@ void drawCloudShape(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, uint16_t c
 }
 } // namespace
 
-void drawTopBar(TFT_eSPI& tft, PageId page, const char* title, int rssi, bool wifiOk, bool fetching) {
+void drawTopBar(TFT_eSPI& tft, const char* title, int rssi, bool wifiOk, bool fetching) {
     tft.fillRect(0, 0, SCREEN_W, 26, COL_SURFACE);
     tft.drawFastHLine(0, 26, SCREEN_W, COL_BORDER);
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(title, 12, 13);
-    tft.unloadFont();
+    tft.drawString(title, 10, 13);
 
-    // Page indicator pills centered near right
-    const int16_t dotsStartX = 216;
-    for (uint8_t i = 0; i < static_cast<uint8_t>(PageId::COUNT); ++i) {
-        const bool active = (i == static_cast<uint8_t>(page));
-        const int16_t dx = dotsStartX + i * 16;
-        if (active) {
-            tft.fillRoundRect(dx - 5, 10, 12, 6, 3, COL_ACCENT);
-        } else {
-            tft.fillCircle(dx, 13, 3, COL_BORDER);
-        }
-    }
+    // Tappable [Ayar] pill button
+    tft.fillRoundRect(214, 4, 50, 18, 6, COL_BG);
+    tft.drawRoundRect(214, 4, 50, 18, 6, COL_BORDER);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_TEXT, COL_BG);
+    tft.drawString("Ayar", 239, 13);
+    tft.unloadFont();
 
     // Sync dot
     tft.fillCircle(274, 13, 3, fetching ? COL_ACCENT_2 : COL_BORDER);
@@ -76,16 +71,62 @@ void drawTopBar(TFT_eSPI& tft, PageId page, const char* title, int rssi, bool wi
     }
 }
 
-void drawBottomHint(TFT_eSPI& tft, const char* leftHint, const char* rightHint) {
-    tft.fillRect(0, SCREEN_H - 20, SCREEN_W, 20, COL_SURFACE);
-    tft.drawFastHLine(0, SCREEN_H - 20, SCREEN_W, COL_BORDER);
+void drawBottomTabs(TFT_eSPI& tft, PageId activePage) {
+    tft.fillRect(0, TAB_BAR_Y - 2, SCREEN_W, TAB_BAR_H + 2, COL_BG);
+
+    const char* const labels[3] = {"Saat", "Hava", "Haber"};
+    const int16_t xs[3] = {4, 109, 214};
+    const int16_t tabW = 102;
+    const int16_t tabH = 30;
 
     tft.loadFont(SegoeUI14TR);
-    tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.setTextDatum(ML_DATUM);
-    tft.drawString(leftHint, 10, SCREEN_H - 10);
-    tft.setTextDatum(MR_DATUM);
-    tft.drawString(rightHint, SCREEN_W - 10, SCREEN_H - 10);
+    tft.setTextDatum(MC_DATUM);
+    for (uint8_t i = 0; i < 3; ++i) {
+        const bool active = (i == static_cast<uint8_t>(activePage));
+        const uint16_t fillCol = active ? COL_ACCENT : COL_SURFACE;
+        const uint16_t borderCol = active ? COL_ACCENT : COL_BORDER;
+        const uint16_t textCol = active ? COL_TEXT : COL_MUTED;
+
+        tft.fillRoundRect(xs[i], TAB_BAR_Y, tabW, tabH, 7, fillCol);
+        tft.drawRoundRect(xs[i], TAB_BAR_Y, tabW, tabH, 7, borderCol);
+        tft.setTextColor(textCol, fillCol);
+        tft.drawString(labels[i], xs[i] + tabW / 2, TAB_BAR_Y + tabH / 2);
+    }
+    tft.unloadFont();
+}
+
+void uiSettingsDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
+    tft.fillScreen(COL_BG);
+    drawTopBar(tft, "Cihaz Ayarları", 0, false, false);
+
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(MC_DATUM);
+
+    // Wi-Fi & City Setup Portal button
+    tft.fillRoundRect(RECT_SET_WIFI.x, RECT_SET_WIFI.y, RECT_SET_WIFI.w, RECT_SET_WIFI.h, 9, COL_SURFACE);
+    tft.drawRoundRect(RECT_SET_WIFI.x, RECT_SET_WIFI.y, RECT_SET_WIFI.w, RECT_SET_WIFI.h, 9, COL_ACCENT);
+    tft.setTextColor(COL_TEXT, COL_SURFACE);
+    tft.drawString("Wi-Fi & Şehir Kurulumu", SCREEN_W / 2, RECT_SET_WIFI.y + RECT_SET_WIFI.h / 2);
+
+    // Touch calibration button
+    tft.fillRoundRect(RECT_SET_CAL.x, RECT_SET_CAL.y, RECT_SET_CAL.w, RECT_SET_CAL.h, 9, COL_SURFACE);
+    tft.drawRoundRect(RECT_SET_CAL.x, RECT_SET_CAL.y, RECT_SET_CAL.w, RECT_SET_CAL.h, 9, COL_ACCENT_2);
+    tft.setTextColor(COL_TEXT, COL_SURFACE);
+    tft.drawString("Dokunmatik Kalibrasyon", SCREEN_W / 2, RECT_SET_CAL.y + RECT_SET_CAL.h / 2);
+
+    // Back button
+    tft.fillRoundRect(RECT_SET_BACK.x, RECT_SET_BACK.y, RECT_SET_BACK.w, RECT_SET_BACK.h, 9, COL_BG);
+    tft.drawRoundRect(RECT_SET_BACK.x, RECT_SET_BACK.y, RECT_SET_BACK.w, RECT_SET_BACK.h, 9, COL_BORDER);
+    tft.setTextColor(COL_MUTED, COL_BG);
+    tft.drawString("Geri Dön", SCREEN_W / 2, RECT_SET_BACK.y + RECT_SET_BACK.h / 2);
+    tft.unloadFont();
+
+    tft.loadFont(SegoeUI14TR);
+    tft.setTextDatum(BC_DATUM);
+    tft.setTextColor(COL_MUTED, COL_BG);
+    char info[96];
+    snprintf(info, sizeof(info), "Ağ: %s • Şehir: %s", cfg.ssid, cfg.city);
+    tft.drawString(info, SCREEN_W / 2, SCREEN_H - 10);
     tft.unloadFont();
 }
 
@@ -156,8 +197,8 @@ uint8_t drawWrappedUtf8(TFT_eSPI& tft, const String& text, int16_t x, int16_t y,
 }
 
 void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCode, bool isDay) {
-    const uint16_t sunCol = 0xFEA0;   // warm yellow
-    const uint16_t cloudCol = 0xDEFB; // soft light grey
+    const uint16_t sunCol = 0xFEA0;
+    const uint16_t cloudCol = 0xDEFB;
     const uint16_t rainCol = COL_ACCENT;
 
     if (wmoCode == 0) {
@@ -221,7 +262,6 @@ void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCo
         return;
     }
 
-    // Thunderstorm (>= 95)
     drawCloudShape(tft, cx, cy - r * 18 / 100, r * 82 / 100, 0x9CF3);
     tft.fillTriangle(cx + 2, cy + r * 14 / 100,
                      cx - 7, cy + r * 42 / 100,

@@ -28,40 +28,40 @@ const char* dayLabelFromIso(const char* iso, int offsetIdx) {
 
 void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, bool fetching) {
     tft.fillScreen(COL_BG);
-    drawTopBar(tft, PageId::WEATHER, cfg.city, netGetRssi(), netIsWifiConnected(), fetching);
+    drawTopBar(tft, cfg.city, netGetRssi(), netIsWifiConnected(), fetching);
 
     if (!wx.valid) {
-        tft.fillRoundRect(16, 48, SCREEN_W - 32, 136, 12, COL_SURFACE);
-        tft.drawRoundRect(16, 48, SCREEN_W - 32, 136, 12, COL_BORDER);
+        tft.fillRoundRect(16, 44, SCREEN_W - 32, 136, 12, COL_SURFACE);
+        tft.drawRoundRect(16, 44, SCREEN_W - 32, 136, 12, COL_BORDER);
         tft.loadFont(SegoeUIBold18TR);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(wx.hasError ? COL_ERR : COL_ACCENT, COL_SURFACE);
         tft.drawString(wx.hasError ? wx.errorMsg : "Hava durumu yükleniyor...",
-                       SCREEN_W / 2, 108);
+                       SCREEN_W / 2, 102);
         tft.unloadFont();
 
         tft.loadFont(SegoeUI14TR);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(COL_MUTED, COL_SURFACE);
-        tft.drawString("Open-Meteo verisi bekleniyor", SCREEN_W / 2, 136);
+        tft.drawString("Yenilemek için karta dokunun", SCREEN_W / 2, 132);
         tft.unloadFont();
 
-        drawBottomHint(tft, "Döndür: Sayfa", "Bas: Yenile");
+        drawBottomTabs(tft, PageId::WEATHER);
         return;
     }
 
-    // Hero current weather card
-    tft.fillRoundRect(12, 34, SCREEN_W - 24, 96, 10, COL_SURFACE);
-    tft.drawRoundRect(12, 34, SCREEN_W - 24, 96, 10, COL_BORDER);
+    // Hero current weather card (tappable to refresh)
+    tft.fillRoundRect(12, 32, SCREEN_W - 24, 88, 10, COL_SURFACE);
+    tft.drawRoundRect(12, 32, SCREEN_W - 24, 88, 10, COL_BORDER);
 
-    drawWeatherIcon(tft, 48, 69, 22, wx.wmoCode, wx.isDay);
+    drawWeatherIcon(tft, 46, 63, 20, wx.wmoCode, wx.isDay);
 
     char tempBuf[16];
     snprintf(tempBuf, sizeof(tempBuf), "%.0f°C", wx.tempC);
     tft.loadFont(SegoeUIBold42Temp);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(tempBuf, 82, 38);
+    tft.drawString(tempBuf, 78, 35);
     tft.unloadFont();
 
     // Right metrics stack
@@ -73,25 +73,34 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(line1, SCREEN_W - 22, 42);
-    tft.drawString(line2, SCREEN_W - 22, 61);
-    tft.drawString(line3, SCREEN_W - 22, 80);
+    tft.drawString(line1, SCREEN_W - 22, 38);
+    tft.drawString(line2, SCREEN_W - 22, 55);
+    tft.drawString(line3, SCREEN_W - 22, 72);
     tft.unloadFont();
 
-    tft.drawFastHLine(22, 100, SCREEN_W - 44, COL_BORDER);
+    tft.drawFastHLine(22, 92, SCREEN_W - 44, COL_BORDER);
 
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString(wmoToTurkish(wx.wmoCode), 22, 105);
+    tft.drawString(wmoToTurkish(wx.wmoCode), 22, 96);
+    tft.unloadFont();
+
+    // Tappable [Yenile] pill inside hero footer
+    tft.fillRoundRect(240, 95, 60, 20, 6, COL_BG);
+    tft.drawRoundRect(240, 95, 60, 20, 6, COL_ACCENT);
+    tft.loadFont(SegoeUI14TR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_TEXT, COL_BG);
+    tft.drawString("Yenile", 270, 105);
     tft.unloadFont();
 
     // 3-day forecast strip
     const int16_t cardW = 94;
-    const int16_t cardH = 74;
+    const int16_t cardH = 76;
     const int16_t gap = 7;
     const int16_t startX = 12;
-    const int16_t cardY = 138;
+    const int16_t cardY = 126;
 
     for (int i = 1; i <= 3; ++i) {
         const int16_t cx = startX + (i - 1) * (cardW + gap);
@@ -104,7 +113,7 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.drawString(dayLabelFromIso(wx.daily[i].dateIso, i), cx + cardW / 2, cardY + 6);
         tft.unloadFont();
 
-        drawWeatherIcon(tft, cx + cardW / 2, cardY + 37, 13, wx.daily[i].wmoCode, true);
+        drawWeatherIcon(tft, cx + cardW / 2, cardY + 38, 13, wx.daily[i].wmoCode, true);
 
         char rangeBuf[20];
         snprintf(rangeBuf, sizeof(rangeBuf), "%.0f° / %.0f°", wx.daily[i].tempMax, wx.daily[i].tempMin);
@@ -115,5 +124,5 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.unloadFont();
     }
 
-    drawBottomHint(tft, "Döndür: Sayfa", "Bas: Hava Yenile");
+    drawBottomTabs(tft, PageId::WEATHER);
 }

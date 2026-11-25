@@ -5,10 +5,12 @@
 constexpr int16_t SCREEN_W = 320;
 constexpr int16_t SCREEN_H = 240;
 
-// Rotary Encoder (KY-040 / EC11) pins
-constexpr uint8_t PIN_ENC_CLK = 32;
-constexpr uint8_t PIN_ENC_DT  = 33;
-constexpr uint8_t PIN_ENC_SW  = 25;
+// Resistive Touch (XPT2046 on shared SPI, T_CS = GPIO 27)
+constexpr uint16_t TOUCH_THRESHOLD   = 350;
+constexpr uint32_t TOUCH_COOLDOWN_MS = 180;
+constexpr int16_t  SWIPE_MIN_PX      = 48;
+constexpr int16_t  TAB_BAR_Y         = 208;
+constexpr int16_t  TAB_BAR_H         = 32;
 
 // Default Wi-Fi & Location (overwritten via NVS / Web Setup Portal)
 constexpr char DEFAULT_WIFI_SSID[] = "WIFI_ADINIZ";

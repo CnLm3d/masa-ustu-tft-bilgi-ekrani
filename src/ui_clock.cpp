@@ -9,11 +9,11 @@
 
 namespace {
 constexpr int16_t CARD_W = 134;
-constexpr int16_t CARD_H = 144;
+constexpr int16_t CARD_H = 134;
 constexpr int16_t HALF_H = CARD_H / 2;
 constexpr int16_t HOUR_X = 16;
 constexpr int16_t MIN_X  = 170;
-constexpr int16_t CARD_Y = 38;
+constexpr int16_t CARD_Y = 33;
 
 int g_lastHour = -1;
 int g_lastMin  = -1;
@@ -34,20 +34,17 @@ uint16_t scaleRgb565(uint16_t c, uint16_t scale256) {
 void renderFlipCardToSprite(TFT_eSprite& spr, const char* twoDigits) {
     spr.fillSprite(COL_BG);
 
-    // Card upper and lower halves with rounded outer corners
     spr.fillRoundRect(0, 0, CARD_W, CARD_H, 10, COL_CARD_BOT);
     spr.fillRoundRect(0, 0, CARD_W, HALF_H + 6, 10, COL_CARD_TOP);
     spr.fillRect(0, HALF_H, CARD_W, 8, COL_CARD_BOT);
     spr.drawRoundRect(0, 0, CARD_W, CARD_H, 10, COL_BORDER);
 
-    // Anti-aliased 88px digits centered on card
     spr.loadFont(SegoeUIBold88Digits);
     spr.setTextDatum(MC_DATUM);
     spr.setTextColor(COL_TEXT);
     spr.drawString(twoDigits, CARD_W / 2, CARD_H / 2 + 2);
     spr.unloadFont();
 
-    // Mechanical hinge slot and silver side rivets
     spr.fillRect(1, HALF_H - 1, CARD_W - 2, 3, COL_HINGE);
     spr.fillRoundRect(3, HALF_H - 5, 5, 10, 2, COL_MUTED);
     spr.fillRoundRect(CARD_W - 8, HALF_H - 5, 5, 10, 2, COL_MUTED);
@@ -79,7 +76,6 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
         return;
     }
 
-    // Render old card to grab exact upper half, then render new card
     renderFlipCardToSprite(newCard, oldStr);
     memcpy(oldTop.getPointer(), newCard.getPointer(), static_cast<size_t>(CARD_W) * HALF_H * 2);
     renderFlipCardToSprite(newCard, newStr);
@@ -90,7 +86,6 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
 
     constexpr int STEPS = 9;
 
-    // Phase 1: upper leaf folds down from HALF_H to 0
     for (int s = 1; s <= STEPS; ++s) {
         const int16_t curH = (HALF_H * (STEPS - s)) / STEPS;
         const int16_t uncoveredH = HALF_H - curH;
@@ -117,7 +112,6 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
         delay(16);
     }
 
-    // Phase 2: lower leaf unfolds from 0 to HALF_H
     for (int s = 1; s <= STEPS; ++s) {
         const int16_t curH = (HALF_H * s) / STEPS;
         const uint16_t scale = static_cast<uint16_t>(115 + (140 * curH) / HALF_H);
@@ -144,14 +138,14 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
 
 void drawColon(TFT_eSPI& tft, bool on) {
     const uint16_t c = on ? COL_ACCENT : COL_BORDER;
-    tft.fillCircle(160, 94, 4, c);
-    tft.fillCircle(160, 126, 4, c);
+    tft.fillCircle(160, 86, 4, c);
+    tft.fillCircle(160, 114, 4, c);
 }
 
 void drawDateAndWeatherPill(TFT_eSPI& tft, const struct tm& ti, bool timeValid,
                             const DeviceConfig& cfg, const WeatherData& wx) {
-    tft.fillRoundRect(16, 190, SCREEN_W - 32, 28, 8, COL_SURFACE);
-    tft.drawRoundRect(16, 190, SCREEN_W - 32, 28, 8, COL_BORDER);
+    tft.fillRoundRect(16, 172, SCREEN_W - 32, 24, 7, COL_SURFACE);
+    tft.drawRoundRect(16, 172, SCREEN_W - 32, 24, 7, COL_BORDER);
 
     char dateBuf[40];
     if (timeValid) {
@@ -164,23 +158,23 @@ void drawDateAndWeatherPill(TFT_eSPI& tft, const struct tm& ti, bool timeValid,
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(dateBuf, 26, 204);
+    tft.drawString(dateBuf, 26, 184);
 
     if (wx.valid) {
         char wxBuf[48];
         snprintf(wxBuf, sizeof(wxBuf), "%s %.0f°C", cfg.city, wx.tempC);
         tft.setTextDatum(MR_DATUM);
         tft.setTextColor(COL_ACCENT_2, COL_SURFACE);
-        tft.drawString(wxBuf, SCREEN_W - 26, 204);
+        tft.drawString(wxBuf, SCREEN_W - 26, 184);
     }
     tft.unloadFont();
 }
 
 void drawSecondBar(TFT_eSPI& tft, int sec) {
     const int16_t barX = 16;
-    const int16_t barY = 226;
+    const int16_t barY = 200;
     const int16_t barW = SCREEN_W - 32;
-    const int16_t barH = 5;
+    const int16_t barH = 4;
     tft.fillRoundRect(barX, barY, barW, barH, 2, COL_SURFACE);
     const int16_t fillW = (barW * (sec + 1)) / 60;
     if (fillW > 2) {
@@ -215,12 +209,13 @@ void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, 
     if (g_forceFull) {
         g_forceFull = false;
         tft.fillScreen(COL_BG);
-        drawTopBar(tft, PageId::CLOCK, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
+        drawTopBar(tft, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
         drawStaticCard(tft, HOUR_X, CARD_Y, newH);
         drawStaticCard(tft, MIN_X, CARD_Y, newM);
         drawColon(tft, (ss % 2) == 0);
         drawDateAndWeatherPill(tft, ti, timeValid, cfg, wx);
         drawSecondBar(tft, ss);
+        drawBottomTabs(tft, PageId::CLOCK);
 
         g_lastHour = hh;
         g_lastMin  = mm;
@@ -235,7 +230,7 @@ void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, 
     if (fetching != g_lastFetching || wifiOk != g_lastWifiOk) {
         g_lastFetching = fetching;
         g_lastWifiOk   = wifiOk;
-        drawTopBar(tft, PageId::CLOCK, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
+        drawTopBar(tft, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
     }
 
     if (timeValid && hh != g_lastHour && g_lastHour >= 0) {

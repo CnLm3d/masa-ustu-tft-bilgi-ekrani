@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render pixel-accurate 320x240 TFT firmware UI previews using Pillow."""
+"""Render pixel-accurate 320x240 Touch TFT firmware UI previews using Pillow."""
 
 from pathlib import Path
 import math
@@ -43,18 +43,14 @@ F42B = ImageFont.truetype(FONT_BOLD_PATH, 42)
 F88B = ImageFont.truetype(FONT_BOLD_PATH, 88)
 
 
-def draw_top_bar(draw: ImageDraw.ImageDraw, page_idx: int, title: str, fetching: bool = False) -> None:
+def draw_top_bar(draw: ImageDraw.ImageDraw, title: str, fetching: bool = False) -> None:
     draw.rectangle([0, 0, W - 1, 26], fill=COL_SURFACE)
     draw.line([0, 26, W - 1, 26], fill=COL_BORDER)
-    draw.text((12, 13), title, font=F14, fill=COL_TEXT, anchor="lm")
+    draw.text((10, 13), title, font=F14, fill=COL_TEXT, anchor="lm")
 
-    dots_x = 216
-    for i in range(3):
-        dx = dots_x + i * 16
-        if i == page_idx:
-            draw.rounded_rectangle([dx - 5, 10, dx + 6, 15], radius=3, fill=COL_ACCENT)
-        else:
-            draw.ellipse([dx - 3, 10, dx + 3, 16], fill=COL_BORDER)
+    # Tappable [Ayar] pill
+    draw.rounded_rectangle([214, 4, 263, 21], radius=6, fill=COL_BG, outline=COL_BORDER)
+    draw.text((239, 13), "Ayar", font=F14, fill=COL_TEXT, anchor="mm")
 
     draw.ellipse([271, 10, 277, 16], fill=COL_ACCENT_2 if fetching else COL_BORDER)
 
@@ -65,11 +61,19 @@ def draw_top_bar(draw: ImageDraw.ImageDraw, page_idx: int, title: str, fetching:
         draw.rectangle([bx, by, bx + 3, 19], fill=COL_OK)
 
 
-def draw_bottom_hint(draw: ImageDraw.ImageDraw, left_hint: str, right_hint: str) -> None:
-    draw.rectangle([0, H - 20, W - 1, H - 1], fill=COL_SURFACE)
-    draw.line([0, H - 20, W - 1, H - 20], fill=COL_BORDER)
-    draw.text((10, H - 10), left_hint, font=F14, fill=COL_MUTED, anchor="lm")
-    draw.text((W - 10, H - 10), right_hint, font=F14, fill=COL_MUTED, anchor="rm")
+def draw_bottom_tabs(draw: ImageDraw.ImageDraw, active_idx: int) -> None:
+    labels = ("Saat", "Hava", "Haber")
+    xs = (4, 109, 214)
+    tab_y, tab_w, tab_h = 208, 102, 30
+    for i, label in enumerate(labels):
+        active = i == active_idx
+        fill_col = COL_ACCENT if active else COL_SURFACE
+        border_col = COL_ACCENT if active else COL_BORDER
+        text_col = COL_TEXT if active else COL_MUTED
+        x = xs[i]
+        draw.rounded_rectangle([x, tab_y, x + tab_w - 1, tab_y + tab_h - 1],
+                               radius=7, fill=fill_col, outline=border_col)
+        draw.text((x + tab_w // 2, tab_y + tab_h // 2), label, font=F14, fill=text_col, anchor="mm")
 
 
 def draw_cloud(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, col: tuple[int, int, int]) -> None:
@@ -89,7 +93,7 @@ def draw_cloud(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, col: tuple[i
     )
 
 
-def draw_weather_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, wmo: int, is_day: bool = True) -> None:
+def draw_weather_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, wmo: int) -> None:
     sun_col = rgb565(0xFEA0)
     cloud_col = rgb565(0xDEFB)
     rain_col = COL_ACCENT
@@ -119,7 +123,7 @@ def draw_weather_icon(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, wmo: 
 
 
 def make_flip_card(digits: str) -> Image.Image:
-    cw, ch = 134, 144
+    cw, ch = 134, 134
     half = ch // 2
     img = Image.new("RGB", (cw, ch), COL_BG)
     d = ImageDraw.Draw(img)
@@ -137,85 +141,82 @@ def make_flip_card(digits: str) -> Image.Image:
 def render_clock(mid_flip: bool = False) -> Image.Image:
     img = Image.new("RGB", (W, H), COL_BG)
     d = ImageDraw.Draw(img)
-    draw_top_bar(d, 0, "Yaprak Saat", fetching=False)
+    draw_top_bar(d, "Yaprak Saat", fetching=False)
 
     hour_card = make_flip_card("16")
-    img.paste(hour_card, (16, 38))
+    img.paste(hour_card, (16, 33))
 
     if not mid_flip:
         min_card = make_flip_card("30")
-        img.paste(min_card, (170, 38))
+        img.paste(min_card, (170, 33))
         sec = 42
     else:
         old_card = make_flip_card("29")
         new_card = make_flip_card("30")
-        img.paste(old_card, (170, 38))
+        img.paste(old_card, (170, 33))
 
-        cw, ch = 134, 144
+        cw, ch = 134, 134
         half = ch // 2
         cur_h = 20
         uncovered = half - cur_h
-        # Revealed top of "30"
-        img.paste(new_card.crop((0, 0, cw, uncovered)), (170, 38))
-        # Folding shaded upper leaf of "29"
+        img.paste(new_card.crop((0, 0, cw, uncovered)), (170, 33))
         leaf = old_card.crop((0, 0, cw, half)).resize((cw, cur_h), Image.BILINEAR)
-        # Shade factor ~0.62
         shaded = leaf.point(lambda p: int(p * 0.62))
-        img.paste(shaded, (170, 38 + uncovered))
-        d.line([172, 38 + uncovered, 170 + cw - 3, 38 + uncovered], fill=COL_HINGE)
-        d.line([172, 38 + half, 170 + cw - 3, 38 + half], fill=COL_HINGE)
+        img.paste(shaded, (170, 33 + uncovered))
+        d.line([172, 33 + uncovered, 170 + cw - 3, 33 + uncovered], fill=COL_HINGE)
+        d.line([172, 33 + half, 170 + cw - 3, 33 + half], fill=COL_HINGE)
         sec = 0
 
-    # Center colon
-    d.ellipse([156, 90, 164, 98], fill=COL_ACCENT)
-    d.ellipse([156, 122, 164, 130], fill=COL_ACCENT)
+    d.ellipse([156, 82, 164, 90], fill=COL_ACCENT)
+    d.ellipse([156, 110, 164, 118], fill=COL_ACCENT)
 
-    # Date & weather pill
-    d.rounded_rectangle([16, 190, W - 17, 217], radius=8, fill=COL_SURFACE, outline=COL_BORDER)
-    d.text((26, 204), "25 Kas Çarşamba", font=F14, fill=COL_TEXT, anchor="lm")
-    d.text((W - 26, 204), "İstanbul 18°C", font=F14, fill=COL_ACCENT_2, anchor="rm")
+    d.rounded_rectangle([16, 172, W - 17, 195], radius=7, fill=COL_SURFACE, outline=COL_BORDER)
+    d.text((26, 184), "25 Kas Çarşamba", font=F14, fill=COL_TEXT, anchor="lm")
+    d.text((W - 26, 184), "İstanbul 18°C", font=F14, fill=COL_ACCENT_2, anchor="rm")
 
-    # 60s progress bar
-    bar_x, bar_y, bar_w, bar_h = 16, 226, W - 32, 5
+    bar_x, bar_y, bar_w, bar_h = 16, 200, W - 32, 4
     d.rounded_rectangle([bar_x, bar_y, bar_x + bar_w - 1, bar_y + bar_h - 1], radius=2, fill=COL_SURFACE)
     fill_w = max(4, (bar_w * (sec + 1)) // 60)
     d.rounded_rectangle([bar_x, bar_y, bar_x + fill_w - 1, bar_y + bar_h - 1], radius=2, fill=COL_ACCENT)
+
+    draw_bottom_tabs(d, 0)
     return img
 
 
 def render_weather() -> Image.Image:
     img = Image.new("RGB", (W, H), COL_BG)
     d = ImageDraw.Draw(img)
-    draw_top_bar(d, 1, "İstanbul", fetching=False)
+    draw_top_bar(d, "İstanbul", fetching=False)
 
-    # Hero card
-    d.rounded_rectangle([12, 34, W - 13, 129], radius=10, fill=COL_SURFACE, outline=COL_BORDER)
-    draw_weather_icon(d, 48, 69, 22, wmo=2, is_day=True)
-    d.text((82, 38), "18°C", font=F42B, fill=COL_TEXT, anchor="lt")
+    d.rounded_rectangle([12, 32, W - 13, 119], radius=10, fill=COL_SURFACE, outline=COL_BORDER)
+    draw_weather_icon(d, 46, 63, 20, wmo=2)
+    d.text((78, 35), "18°C", font=F42B, fill=COL_TEXT, anchor="lt")
 
-    d.text((W - 22, 42), "Hissedilen: 17°", font=F14, fill=COL_MUTED, anchor="rt")
-    d.text((W - 22, 61), "Nem: %64", font=F14, fill=COL_MUTED, anchor="rt")
-    d.text((W - 22, 80), "Rüzgar: 14 km/s", font=F14, fill=COL_MUTED, anchor="rt")
+    d.text((W - 22, 38), "Hissedilen: 17°", font=F14, fill=COL_MUTED, anchor="rt")
+    d.text((W - 22, 55), "Nem: %64", font=F14, fill=COL_MUTED, anchor="rt")
+    d.text((W - 22, 72), "Rüzgar: 14 km/s", font=F14, fill=COL_MUTED, anchor="rt")
 
-    d.line([22, 100, W - 22, 100], fill=COL_BORDER)
-    d.text((22, 105), "Parçalı Bulutlu", font=F18B, fill=COL_ACCENT, anchor="lt")
+    d.line([22, 92, W - 22, 92], fill=COL_BORDER)
+    d.text((22, 96), "Parçalı Bulutlu", font=F18B, fill=COL_ACCENT, anchor="lt")
 
-    # 3-day forecast cards
+    d.rounded_rectangle([240, 95, 299, 114], radius=6, fill=COL_BG, outline=COL_ACCENT)
+    d.text((270, 105), "Yenile", font=F14, fill=COL_TEXT, anchor="mm")
+
     days = [
         ("Yarın", 61, "15° / 9°"),
         ("Cum", 0, "19° / 10°"),
         ("Cmt", 2, "17° / 11°"),
     ]
-    card_w, card_h, gap, start_x, card_y = 94, 74, 7, 12, 138
+    card_w, card_h, gap, start_x, card_y = 94, 76, 7, 12, 126
     for idx, (label, wmo, rng) in enumerate(days):
         cx = start_x + idx * (card_w + gap)
         d.rounded_rectangle([cx, card_y, cx + card_w - 1, card_y + card_h - 1],
                             radius=8, fill=COL_SURFACE, outline=COL_BORDER)
         d.text((cx + card_w // 2, card_y + 6), label, font=F14, fill=COL_TEXT, anchor="mt")
-        draw_weather_icon(d, cx + card_w // 2, card_y + 37, 13, wmo=wmo, is_day=True)
+        draw_weather_icon(d, cx + card_w // 2, card_y + 38, 13, wmo=wmo)
         d.text((cx + card_w // 2, card_y + card_h - 5), rng, font=F14, fill=COL_ACCENT_2, anchor="mb")
 
-    draw_bottom_hint(d, "Döndür: Sayfa", "Bas: Hava Yenile")
+    draw_bottom_tabs(d, 1)
     return img
 
 
@@ -246,29 +247,33 @@ def wrap_lines(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFon
 def render_news() -> Image.Image:
     img = Image.new("RGB", (W, H), COL_BG)
     d = ImageDraw.Draw(img)
-    draw_top_bar(d, 2, "Google Haber • Gündem", fetching=False)
+    draw_top_bar(d, "Haber • Gündem", fetching=False)
 
-    cx, cy, cw, ch = 12, 34, W - 24, 148
+    cx, cy, cw, ch = 12, 32, W - 24, 136
     d.rounded_rectangle([cx, cy, cx + cw - 1, cy + ch - 1], radius=10, fill=COL_SURFACE, outline=COL_BORDER)
 
     d.text((cx + 12, cy + 8), "Gündem", font=F14, fill=COL_ACCENT, anchor="lt")
     d.text((cx + cw - 12, cy + 8), "1 / 12", font=F14, fill=COL_MUTED, anchor="rt")
 
     headline = "İstanbul ve Marmara genelinde yarından itibaren sağanak yağış bekleniyor"
-    lines = wrap_lines(d, headline, F18B, cw - 24, 4)
+    lines = wrap_lines(d, headline, F18B, cw - 24, 3)
     for i, ln in enumerate(lines):
-        d.text((cx + 12, cy + 32 + i * 23), ln, font=F18B, fill=COL_TEXT, anchor="lt")
+        d.text((cx + 12, cy + 30 + i * 23), ln, font=F18B, fill=COL_TEXT, anchor="lt")
 
-    d.line([cx + 12, cy + ch - 28, cx + cw - 12, cy + ch - 28], fill=COL_BORDER)
+    d.line([cx + 12, cy + ch - 27, cx + cw - 12, cy + ch - 27], fill=COL_BORDER)
     d.text((cx + 12, cy + ch - 21), "TRT Haber", font=F14, fill=COL_ACCENT_2, anchor="lt")
     d.text((cx + cw - 12, cy + ch - 21), "16:15", font=F14, fill=COL_MUTED, anchor="rt")
 
-    # Next strip
-    d.rounded_rectangle([12, 188, W - 13, 211], radius=6, fill=COL_SURFACE)
-    nxt = wrap_lines(d, "Sonraki: Yerli enerji depolama tesisinde yeni üretim rekoru kırıldı", F14, W - 40, 1)[0]
-    d.text((20, 193), nxt, font=F14, fill=COL_MUTED, anchor="lt")
+    btns = [
+        (12, 173, 94, 30, "< Önceki", COL_BORDER),
+        (112, 173, 96, 30, "Konu Değiş", COL_ACCENT),
+        (214, 173, 94, 30, "Sonraki >", COL_BORDER),
+    ]
+    for bx, by, bw, bh, lbl, bcol in btns:
+        d.rounded_rectangle([bx, by, bx + bw - 1, by + bh - 1], radius=7, fill=COL_SURFACE, outline=bcol)
+        d.text((bx + bw // 2, by + bh // 2), lbl, font=F14, fill=COL_TEXT, anchor="mm")
 
-    draw_bottom_hint(d, "Döndür: Sayfa", "Bas: Gez | Basılı: Konu")
+    draw_bottom_tabs(d, 2)
     return img
 
 
@@ -283,7 +288,7 @@ def make_showcase(frames: list[tuple[str, Image.Image]]) -> Image.Image:
 
     title_font = ImageFont.truetype(FONT_BOLD_PATH, 24)
     cap_font = ImageFont.truetype(FONT_BOLD_PATH, 18)
-    d.text((total_w // 2, 24), "ESP32 DeskHub • 2.4\" ILI9341 (320×240) Ekran Önizlemeleri",
+    d.text((total_w // 2, 24), "ESP32 DeskHub • Dokunmatik 2.4\" ILI9341 (320×240)",
            font=title_font, fill=COL_TEXT, anchor="mm")
 
     for idx, (caption, im) in enumerate(frames):
@@ -304,10 +309,10 @@ def main() -> None:
     ARTIFACT_PREVIEWS.mkdir(parents=True, exist_ok=True)
 
     screens = [
-        ("screen_1_clock.png", "1. Yaprak Saat (16:30)", render_clock(mid_flip=False)),
+        ("screen_1_clock.png", "1. Yaprak Saat (Dokunmatik Sekmeli)", render_clock(mid_flip=False)),
         ("screen_1b_clock_flip.png", "1b. Dakika Yaprak Dönüşü (29 → 30)", render_clock(mid_flip=True)),
-        ("screen_2_weather.png", "2. Hava Durumu (Open-Meteo)", render_weather()),
-        ("screen_3_news.png", "3. Google Haberler (TR RSS)", render_news()),
+        ("screen_2_weather.png", "2. Hava Durumu (Yenile Butonlu)", render_weather()),
+        ("screen_3_news.png", "3. Google Haberler (Önceki / Konu / Sonraki)", render_news()),
     ]
 
     for fname, _, im in screens:
@@ -320,7 +325,7 @@ def main() -> None:
     showcase_docs = DOCS_PREVIEWS / "all_screens_preview.png"
     showcase.save(showcase_docs)
     shutil.copy2(showcase_docs, ARTIFACT_PREVIEWS / "all_screens_preview.png")
-    print(f"Saved 5 previews to {DOCS_PREVIEWS} and {ARTIFACT_PREVIEWS}")
+    print(f"Saved 5 touch previews to {DOCS_PREVIEWS} and {ARTIFACT_PREVIEWS}")
 
 
 if __name__ == "__main__":

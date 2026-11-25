@@ -251,3 +251,59 @@ void runSetupPortal(TFT_eSPI& tft, DeviceConfig& cfg) {
     WiFi.softAPdisconnect(true);
     ESP.restart();
 }
+
+bool loadTouchCal(uint16_t cal[5]) {
+    Preferences prefs;
+    prefs.begin(NVS_NS, true);
+    const bool ok = prefs.getBool("tcalOk", false);
+    if (ok) {
+        for (int i = 0; i < 5; ++i) {
+            char key[8];
+            snprintf(key, sizeof(key), "tcal%d", i);
+            cal[i] = prefs.getUShort(key, 0);
+        }
+    }
+    prefs.end();
+    return ok;
+}
+
+void saveTouchCal(const uint16_t cal[5]) {
+    Preferences prefs;
+    prefs.begin(NVS_NS, false);
+    for (int i = 0; i < 5; ++i) {
+        char key[8];
+        snprintf(key, sizeof(key), "tcal%d", i);
+        prefs.putUShort(key, cal[i]);
+    }
+    prefs.putBool("tcalOk", true);
+    prefs.end();
+}
+
+void runTouchCalibration(TFT_eSPI& tft) {
+    uint16_t cal[5] = {0};
+
+    tft.fillScreen(COL_BG);
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_ACCENT, COL_BG);
+    tft.drawString("Dokunmatik Kalibrasyon", SCREEN_W / 2, 96);
+    tft.unloadFont();
+
+    tft.loadFont(SegoeUI14TR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_TEXT, COL_BG);
+    tft.drawString("Köşelerde çıkan oklara sırayla dokunun", SCREEN_W / 2, 130);
+    tft.unloadFont();
+
+    tft.calibrateTouch(cal, COL_ACCENT_2, COL_BG, 16);
+    tft.setTouch(cal);
+    saveTouchCal(cal);
+
+    tft.fillScreen(COL_BG);
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_OK, COL_BG);
+    tft.drawString("Kalibrasyon kaydedildi!", SCREEN_W / 2, SCREEN_H / 2);
+    tft.unloadFont();
+    delay(700);
+}
