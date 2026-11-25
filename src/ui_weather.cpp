@@ -54,20 +54,14 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.fillRoundRect(12, 34, SCREEN_W - 24, 96, 10, COL_SURFACE);
     tft.drawRoundRect(12, 34, SCREEN_W - 24, 96, 10, COL_BORDER);
 
-    drawWeatherIcon(tft, 52, 82, 26, wx.wmoCode, wx.isDay);
+    drawWeatherIcon(tft, 48, 69, 22, wx.wmoCode, wx.isDay);
 
     char tempBuf[16];
     snprintf(tempBuf, sizeof(tempBuf), "%.0f°C", wx.tempC);
     tft.loadFont(SegoeUIBold42Temp);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(tempBuf, 92, 42);
-    tft.unloadFont();
-
-    tft.loadFont(SegoeUIBold18TR);
-    tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString(wmoToTurkish(wx.wmoCode), 94, 92);
+    tft.drawString(tempBuf, 82, 38);
     tft.unloadFont();
 
     // Right metrics stack
@@ -79,9 +73,17 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(line1, SCREEN_W - 22, 48);
-    tft.drawString(line2, SCREEN_W - 22, 72);
-    tft.drawString(line3, SCREEN_W - 22, 96);
+    tft.drawString(line1, SCREEN_W - 22, 42);
+    tft.drawString(line2, SCREEN_W - 22, 61);
+    tft.drawString(line3, SCREEN_W - 22, 80);
+    tft.unloadFont();
+
+    tft.drawFastHLine(22, 100, SCREEN_W - 44, COL_BORDER);
+
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextColor(COL_ACCENT, COL_SURFACE);
+    tft.drawString(wmoToTurkish(wx.wmoCode), 22, 105);
     tft.unloadFont();
 
     // 3-day forecast strip
