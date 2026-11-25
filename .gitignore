@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+*.bin
+*.elf
+*.pyc
+__pycache__/
+Thumbs.db
+.DS_Store
+include/secrets.h
