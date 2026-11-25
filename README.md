@@ -142,6 +142,22 @@ Ekran ve dahili **XPT2046 dokunmatik kontrolcüsü** aynı SPI hattını farklı
 
 ---
 
+## 3D Baskı Kutu (`enclosure/`)
+
+Desteksiz (support-free) basılabilen, 15° masaüstü eğimli 2 parçalı **PLA/PETG** kasa dosyaları `enclosure/stl/` içindedir:
+
+![3D Baskı Kutu Önizlemesi](enclosure/enclosure_preview.png)
+
+| Parça | Dosya | Baskı Ayarı |
+|---|---|---|
+| Ön Gövde | [`enclosure/stl/deskhub_front_shell.stl`](enclosure/stl/deskhub_front_shell.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~30 g) |
+| Arka Kapak | [`enclosure/stl/deskhub_back_cover.stl`](enclosure/stl/deskhub_back_cover.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~11 g) |
+| Parametrik SCAD | [`enclosure/deskhub_enclosure.scad`](enclosure/deskhub_enclosure.scad) | OpenSCAD ile özelleştirilebilir |
+
+- **Vida Listesi:** `4× M3×6` (TFT montajı) + `4× M3×8` havşalı (arka kapak).
+
+---
+
 ## Derleme ve Yükleme (PlatformIO)
 
 Proje **4 MB Flash** üzerinde **`huge_app.csv`** (3 MB uygulama bölümü) kullanır.
