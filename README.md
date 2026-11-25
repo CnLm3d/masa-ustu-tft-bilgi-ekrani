@@ -1,47 +1,150 @@
-# ESP32 DeskHub (Yatay 2.4" Dokunmatik TFT)
+# ESP32 DeskHub v2.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı
 
-ESP32 DevKit ve **TJCTM24024-SPI (2.4" 240×320 ILI9341 + XPT2046 Dokunmatik)** ekran ile harici buton/encoder gerektirmeyen masaüstü bilgi istasyonu:
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-ESP32%20%7C%20ESP32--C3-00979D?style=for-the-badge&logo=espressif" alt="ESP32">
+  <img src="https://img.shields.io/badge/Display-2.4%22%20320x240%20ILI9341%20Touch-3893FF?style=for-the-badge" alt="ILI9341">
+  <img src="https://img.shields.io/badge/Web%20UI-deskhub.local-FFA400?style=for-the-badge" alt="Web UI">
+  <img src="https://img.shields.io/badge/Framework-PlatformIO%20%7C%20Arduino-2DD264?style=for-the-badge" alt="PlatformIO">
+</p>
 
-1. **Yaprak Saat (Flip Clock):** Her dakika geçişinde 3D gölgeli mekanik yaprak dönme animasyonu, Türkçe tarih, alt özet hava durumu ve 60 sn ilerleme çubuğu.
-2. **Hava Durumu (Open-Meteo):** API anahtarsız anlık sıcaklık, hissedilen, nem, rüzgar, Türkçe hava durumu ikonu ve 3 günlük tahmin.
-3. **Google Haberler (Türkiye RSS):** Gündem, Teknoloji, Ekonomi, Bilim ve Spor kategorilerinde Türkçe manşet akışı ve dokunmatik gezinme butonları.
+**TJCTM24024-SPI (2.4" 320×240 ILI9341 + XPT2046 Dokunmatik)** ve **ESP32 DevKit / NodeMCU-32S / ESP32-C3 Mini** ile çalışan, tamamen dokunmatik kontrollü ve dahili **Web UI (`http://deskhub.local`)** üzerinden yönetilebilen masaüstü akıllı bilgi istasyonu.
+
+---
+
+## Canlı Animasyonlar (GIF)
+
+| Yaprak Saat (3D Gölgeli Dönüş) | Mario Saat (Dakika Zıplama & Kutu Vuruşu) | Tetris Saat (Yalnızca Değişen Hane Düşer) |
+|:---:|:---:|:---:|
+| ![Yaprak Saat Animasyonu](docs/media/anim_flip_clock.gif) | ![Mario Saat Animasyonu](docs/media/anim_mario_clock.gif) | ![Tetris Saat Animasyonu](docs/media/anim_tetris_clock.gif) |
+
+---
+
+## Özellikler
+
+### 7 Farklı Saat Teması
+1. **Yaprak Saat (Flip Clock):** Her dakika/saat değişiminde 3D gölgeli mekanik yaprak dönme animasyonu, Türkçe tarih, alt hava özeti ve 60 sn ilerleme barı.
+2. **Nixie Tüp Saat (IN-18):** Üst cam mühür ucu, cam yansımaları, mika tutucular, anod kafesi, sönük katot telleri, pirinç soket pinleri ve ince tel-filament neon parlama.
+3. **Dijital 7-Segment LED:** Saniyeli yüksek kontrastlı camgöbeği LED göstergeler.
+4. **Analog Rolex (Submariner):** Zümrüt-siyah diver bezel, Mercedes akrep, büyüteçli tarih penceresi ve sağda dijital özet paneli.
+5. **Analog Patek Philippe (Nautilus):** Sekizgen çelik kasa, yatay şeritli lacivert kadran, 6 yönünde ay evresi alt kadranı.
+6. **Mario Saat:** Orijinal 16×16 NES Mario piksel karakteri ve 42×42 `?` blokları; dakika başı Mario zıplayarak dakika kutusuna alttan vurur, kutu yukarı seker ve sikke çıkar.
+7. **Tetris Saat:** Değişmeyen rakamlar sabit kalır; sadece değişen hanenin çok renkli tetromino parçaları yukarıdan düşerek rakamı oluşturur.
+
+![6 Yeni Saat Teması](docs/media/clock_themes_all.png)
+
+<details>
+<summary>2× Yakın Detay Görseli (Nixie, Mario Bekleme/Vuruş ve Tetris)</summary>
+
+![Yenilenen Saat Temaları Detay](docs/media/refined_themes_detail.png)
+
+</details>
+
+---
+
+### Yeni Menüler & Akıllı Araçlar
+
+- **Ana Menü (4×2 Dokunmatik Izgara):** Alt bardaki `Menü` sekmesinden tüm uygulamalara tek dokunuşla erişim.
+- **Hava Durumu (Open-Meteo):** API anahtarsız anlık sıcaklık, hissedilen, nem, rüzgar, vektörel ikonlar ve 3 günlük Türkçe tahmin.
+- **Piyasa (TCMB & Altın):** Resmi `tcmb.gov.tr/kurlar/today.xml` üzerinden `USD/TRY`, `EUR/TRY`, `GBP/TRY` + canlı `Ons Altın ($)` ve `Gram Altın (₺)`.
+- **Dünya Saatleri:** Web UI'dan özelleştirilebilen 4 şehir (varsayılan: İstanbul, Londra, New York, Tokyo) + gündüz/gece göstergesi.
+- **Alarmlar:** 3 bağımsız alarm (`Her Gün` / `Hafta İçi` / `Hafta Sonu`), ekranda dokunmatik saat/dakika düzenleme, `5 dk Ertele` ve opsiyonel pasif buzzer çıkışı.
+- **Google Haberler (TR RSS):** Gündem, Teknoloji, Ekonomi, Bilim ve Spor kategorilerinde Türkçe manşetler (`< Önceki` / `Konu Değiş` / `Sonraki >`).
+- **Odak Zamanlayıcı (Pomodoro):** `25/5 dk` ve `50/10 dk` dairesel ilerleme halkalı çalışma sayacı.
+- **Gece Modu Saati:** Belirlenen saat aralığında göz yormayan düşük parlaklıklı kırmızı gece saati (dokununca 2 dakika uyanır).
+
+![Yeni Menüler ve Bonus Özellikler](docs/media/menus_all.png)
+
+---
+
+### Dahili Web UI (`http://deskhub.local`)
+
+ESP32 aynı ağa bağlandığında `http://deskhub.local` (veya cihazın yerel IP adresi) üzerinden açılan modern karanlık tema kontrol paneli:
+- 7 saat temasını ve ekrandaki aktif sayfayı tek tıkla anlık değiştirme
+- 3 alarmı, 4 dünya şehrini, hava durumu şehrini/koordinatını ve haber kategorisini düzenleme
+- Gece Modu saat aralığı, ekran döndürme (`0° / 180°`) ve buzzer GPIO ayarı
+- Anlık TCMB/Altın kurları, Wi-Fi sinyal gücü ve RAM telemetrisi
+- Uzaktan dokunmatik kalibrasyon, veri yenileme ve kurulum portalı tetikleme
+
+![Web UI Kontrol Paneli](docs/media/web_ui_dashboard.png)
+
+---
+
+## Sistem Mimarisi
+
+```mermaid
+flowchart LR
+    subgraph Core0["ESP32 Core 0 (Arka Plan Ağ Görevi)"]
+        NTP["NTP (pool.ntp.org)"]
+        WX["Open-Meteo HTTPS"]
+        MK["TCMB XML + Altın API"]
+        RSS["Google News TR RSS"]
+    end
+    subgraph Core1["ESP32 Core 1 (UI & Kontrol)"]
+        TOUCH["XPT2046 Dokunmatik\n(Dokunma + Kaydırma)"]
+        TFT["ILI9341 320x240\n(7 Saat + 9 Menü)"]
+        WEB["WebServer + mDNS\n(deskhub.local)"]
+        NVS["Preferences (NVS)\nKalibrasyon & Ayarlar"]
+    end
+    Core0 -->|Mutex Korumalı Veri| Core1
+    TOUCH --> TFT
+    WEB -->|WebAction Kuyruğu| Core1
+    WEB --> NVS
+```
+
+---
 
 ## Donanım Bağlantı Şeması (`TJCTM24024-SPI`)
 
-Ekran ve dahili **XPT2046 dokunmatik kontrolcüsü** aynı SPI hattını farklı `CS` pinleriyle paylaşır:
+Ekran ve dahili **XPT2046 dokunmatik kontrolcüsü** aynı SPI hattını farklı `CS` pinleriyle paylaşır (harici buton veya rotary encoder gerekmez).
 
 | Ekran Pini | ESP32 DevKit / NodeMCU-32S (`esp32dev`) | ESP32-C3 Mini (`esp32c3`) | Açıklama |
 |---|---|---|---|
-| `VCC` | **5V (VIN)** | **5V (VBUS)** | Kart arkasındaki `U1` (XC6206 3.3V regülatör) için 5V |
-| `GND` | `GND` | `GND` | Ortak toprak |
+| `VCC` | **5V (VIN)** | **5V (VBUS)** | Kart arkasındaki `U1` (3.3V regülatör) için 5V |
+| `GND` | `GND` | `GND` | Ortak şase |
 | `CS` | `GPIO 5` | `GPIO 7` | TFT Chip Select |
 | `RESET` | `GPIO 17` | `GPIO 3` | TFT Reset |
 | `DC` | `GPIO 16` | `GPIO 2` | Data / Command |
 | `SDI (MOSI)` | `GPIO 23` | `GPIO 6` | SPI MOSI |
 | `SCK` | `GPIO 18` | `GPIO 4` | SPI SCLK |
-| `LED` | **3.3V** | **3.3V** | Arka ışık |
+| `LED` | **3.3V** | **3.3V** | Arka ışık (`3.3V` bağlayın) |
 | `SDO (MISO)` | `GPIO 19` | `GPIO 5` | SPI MISO |
-| `T_CLK` | `GPIO 18` | `GPIO 4` | Dokunmatik SPI Clock (`SCK` ile paralel) |
+| `T_CLK` | `GPIO 18` | `GPIO 4` | `SCK` ile paralel |
 | `T_CS` | `GPIO 27` | `GPIO 10` | Dokunmatik Chip Select |
-| `T_DIN` | `GPIO 23` | `GPIO 6` | Dokunmatik MOSI (`SDI` ile paralel) |
-| `T_DO` | `GPIO 19` | `GPIO 5` | Dokunmatik MISO (`SDO` ile paralel) |
-| `T_IRQ` | *Boş* | *Boş* | Kullanılmıyor (yoklama modu) |
+| `T_DIN` | `GPIO 23` | `GPIO 6` | `SDI (MOSI)` ile paralel |
+| `T_DO` | `GPIO 19` | `GPIO 5` | `SDO (MISO)` ile paralel |
+| `T_IRQ` | *Boş* | *Boş* | Bağlanmaz (yoklama modu) |
 
-## Dokunmatik Kullanım
+---
 
-- **Alt Sekme Çubuğu (`Saat | Hava | Haber`):** Tek dokunuşla sayfalar arası geçiş.
-- **Sağa / Sola Kaydırma:** Saat/Hava'da sayfa değiştirir; Haberler'de önceki/sonraki manşete geçer.
-- **Yaprak Saat:** Dakika kartına dokun → demo yaprak animasyonu; Saat kartına dokun → NTP/Hava/Haber yenile; Tarih/Hava bandına dokun → Hava sayfasına geç.
-- **Hava Durumu:** Ana karta veya `Yenile` butonuna dokun → hava verisini güncelle.
-- **Google Haberler:** `< Önceki` / `Sonraki >` ile haberleri gez, `Konu Değiş` ile kategoriyi değiştir.
-- **Üst Sağ `[Ayar]` Butonu:** Wi-Fi & Şehir Kurulum Portalını (`ESP32-DeskHub`, `http://192.168.4.1`) veya 4 köşe dokunmatik kalibrasyonu yeniden başlat.
+## Dokunmatik Kullanım & İlk Kurulum
 
-## İlk Açılış ve Kalibrasyon
+1. **İlk Kalibrasyon:** Cihaz ilk açılışta 4 köşe dokunmatik kalibrasyonu ister. Oklara sırayla dokunduğunuzda kalibrasyon NVS belleğe kaydedilir.
+2. **Wi-Fi Kurulumu:** Kayıtlı ağ yoksa cihaz **`ESP32-DeskHub`** adlı şifresiz Wi-Fi ağı açar. Bağlanıp **`http://192.168.4.1`** adresinden Wi-Fi ve şehrinizi kaydedin.
+3. **Alt Sekme Çubuğu (`Saat | Piyasa | Haber | Menü`):** Tek dokunuşla ana sayfalara geçiş; sağa/sola kaydırma ile sayfalar veya haberler arasında gezinme.
+4. **Saat Ekranı Kısayolları:**
+   - Sağ üst **`[Tema]`** butonu → 7 saat teması arasında geçiş
+   - Dakika tarafına dokunma → aktif temanın animasyon demosu (Yaprak dönüş / Mario zıplama-vuruş / Tetris düşüş)
+   - Saat tarafına dokunma → NTP + Hava + Piyasa yenileme
+   - Alt tarih/hava bandına dokunma → Hava Durumu sayfası
 
-1. İlk açılışta ekranda 4 köşe dokunmatik kalibrasyonu çıkar; oklara sırayla dokunun (NVS'e kaydedilir, sonraki açılışlarda tekrar sorulmaz).
-2. Wi-Fi ayarlı değilse **`ESP32-DeskHub`** ağı açılır; telefon/PC ile bağlanıp **`http://192.168.4.1`** üzerinden Wi-Fi ve şehir bilgisini kaydedin.
+---
+
+## Web UI REST API
+
+| Uç Nokta | Metot | Açıklama |
+|---|---|---|
+| `/` | `GET` | Tek sayfalık karanlık tema Web UI |
+| `/api/state` | `GET` | Tema, sayfa, alarmlar, dünya saatleri, piyasa ve RAM/RSSI JSON |
+| `/api/theme?id=0..6` | `POST` | Saat temasını anlık değiştirir ve NVS'e kaydeder |
+| `/api/page?id=0..9` | `POST` | Ekrandaki aktif sayfayı değiştirir |
+| `/api/config` | `POST` | Şehir, koordinat, haber, alarmlar, dünya saatleri, gece modu, yön ve buzzer kaydı |
+| `/api/action?cmd=...` | `POST` | `refresh`, `calibrate`, `portal`, `restart` komutları |
+
+---
 
 ## Derleme ve Yükleme (PlatformIO)
+
+Proje **4 MB Flash** üzerinde **`huge_app.csv`** (3 MB uygulama bölümü) kullanır.
 
 **ESP32 DevKit / NodeMCU-32S (`esp32dev`):**
 ```powershell
@@ -55,7 +158,8 @@ pio run -e esp32c3
 pio run -e esp32c3 -t upload
 ```
 
-Seri monitör:
+**Türkçe Fontları veya Dokümantasyon Görsellerini Yeniden Üretmek İçin:**
 ```powershell
-pio device monitor -b 115200
+python tools/generate_fonts.py
+python tools/render_docs_media.py
 ```

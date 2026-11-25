@@ -5,29 +5,52 @@
 #include "storage_portal.h"
 #include "touch_input.h"
 #include "types.h"
+#include "ui_alarm.h"
 #include "ui_clock.h"
 #include "ui_common.h"
+#include "ui_market.h"
 #include "ui_news.h"
+#include "ui_pomodoro.h"
 #include "ui_weather.h"
+#include "ui_world.h"
+#include "web_ui.h"
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
+#include <time.h>
 
 namespace {
 TFT_eSPI tft;
 DeviceConfig g_cfg{};
 WeatherData g_wx{};
 NewsData g_news{};
+MarketData g_mk{};
+PomodoroState g_pomo{};
 
 PageId g_page = PageId::CLOCK;
-bool g_inSettings = false;
+int8_t g_alarmEditIdx = -1;
 uint8_t g_newsIdx = 0;
 uint32_t g_newsCycleMs = 0;
 uint32_t g_lastUiPollMs = 0;
 uint32_t g_lastWxMs = 0;
 uint32_t g_lastNewsMs = 0;
+uint32_t g_lastMkMs = 0;
+int g_lastWorldMin = -1;
+int g_lastNightMin = -1;
 bool g_lastFetching = false;
 bool g_dirty = true;
+bool g_webStarted = false;
+
+// Alarm ringing & snooze state
+int8_t g_ringingIdx = -1;
+int g_lastAlarmCheckMin = -1;
+int8_t g_snoozeIdx = -1;
+uint32_t g_snoozeUntilMs = 0;
+uint32_t g_lastRingFlashMs = 0;
+bool g_ringInvert = false;
+
+// Night mode wake override (touch wakes for 2 minutes)
+uint32_t g_nightWakeUntilMs = 0;
 
 void showSplash(const char* subText) {
     tft.fillScreen(COL_BG);
@@ -37,7 +60,7 @@ void showSplash(const char* subText) {
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString("ESP32 Masaüstü Bilgi Ekranı", SCREEN_W / 2, 102);
+    tft.drawString("ESP32 DeskHub v2.0", SCREEN_W / 2, 102);
     tft.unloadFont();
 
     tft.loadFont(SegoeUI14TR);
@@ -66,8 +89,8 @@ void connectWifiWithUi() {
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        showSplash((String("Bağlandı • ") + WiFi.localIP().toString()).c_str());
-        delay(600);
+        showSplash((String("deskhub.local • ") + WiFi.localIP().toString()).c_str());
+        delay(800);
     } else {
         showSplash("Wi-Fi bekleniyor (arka planda denenecek)");
         delay(900);
@@ -76,21 +99,19 @@ void connectWifiWithUi() {
 
 void enterPage(PageId nextPage) {
     g_page = nextPage;
-    g_inSettings = false;
+    g_alarmEditIdx = -1;
     g_dirty = true;
+    webUiSetActivePage(g_page);
     if (g_page == PageId::CLOCK) {
         uiClockEnter(tft, g_cfg, g_wx);
         g_dirty = false;
     } else if (g_page == PageId::NEWS) {
         g_newsCycleMs = millis();
+    } else if (g_page == PageId::WORLD) {
+        g_lastWorldMin = -1;
+    } else if (g_page == PageId::NIGHT) {
+        g_lastNightMin = -1;
     }
-}
-
-void stepPage(int delta) {
-    const int total = static_cast<int>(PageId::COUNT);
-    int next = (static_cast<int>(g_page) + delta) % total;
-    if (next < 0) next += total;
-    enterPage(static_cast<PageId>(next));
 }
 
 void stepNews(int delta, uint32_t now) {
@@ -102,10 +123,89 @@ void stepNews(int delta, uint32_t now) {
     g_dirty = true;
 }
 
+bool alarmMatchesDay(uint8_t repeatMode, int wday) {
+    if (repeatMode == 1) return wday >= 1 && wday <= 5;
+    if (repeatMode == 2) return wday == 0 || wday == 6;
+    return true;
+}
+
+void stopBuzzer() {
+    if (g_cfg.buzzerPin > 0) {
+        noTone(g_cfg.buzzerPin);
+    }
+}
+
+void checkAlarmsAndNight(uint32_t now) {
+    if (g_snoozeIdx >= 0 && now >= g_snoozeUntilMs) {
+        g_ringingIdx = g_snoozeIdx;
+        g_snoozeIdx = -1;
+        g_ringInvert = false;
+        uiAlarmRingingDraw(tft, g_cfg.alarms[g_ringingIdx], false);
+        return;
+    }
+
+    struct tm ti{};
+    if (!getLocalTime(&ti, 2)) return;
+
+    const int curMinKey = ti.tm_hour * 60 + ti.tm_min;
+    if (curMinKey != g_lastAlarmCheckMin) {
+        g_lastAlarmCheckMin = curMinKey;
+        for (int8_t i = 0; i < 3; ++i) {
+            const AlarmItem& a = g_cfg.alarms[i];
+            if (a.enabled && a.hour == ti.tm_hour && a.minute == ti.tm_min &&
+                alarmMatchesDay(a.repeatMode, ti.tm_wday)) {
+                g_ringingIdx = i;
+                g_ringInvert = false;
+                uiAlarmRingingDraw(tft, a, false);
+                return;
+            }
+        }
+    }
+
+    // Auto Night Mode check (when idle on Clock)
+    if (g_cfg.nightEnabled && g_ringingIdx < 0 && now >= g_nightWakeUntilMs) {
+        const uint8_t h = static_cast<uint8_t>(ti.tm_hour);
+        const uint8_t s = g_cfg.nightStartHour;
+        const uint8_t e = g_cfg.nightEndHour;
+        const bool inNight = (s < e) ? (h >= s && h < e) : (h >= s || h < e);
+        if (inNight && g_page == PageId::CLOCK) {
+            enterPage(PageId::NIGHT);
+        } else if (!inNight && g_page == PageId::NIGHT) {
+            enterPage(PageId::CLOCK);
+        }
+    }
+}
+
 void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
     if (ev.type == TouchEventType::NONE) return;
 
-    if (g_inSettings) {
+    // 1) Ringing alarm has highest priority
+    if (g_ringingIdx >= 0) {
+        if (ev.type == TouchEventType::TAP) {
+            if (RECT_RING_STOP.contains(ev.x, ev.y)) {
+                stopBuzzer();
+                g_ringingIdx = -1;
+                enterPage(g_page);
+            } else if (RECT_RING_SNOOZE.contains(ev.x, ev.y)) {
+                stopBuzzer();
+                g_snoozeIdx = g_ringingIdx;
+                g_snoozeUntilMs = now + 5UL * 60UL * 1000UL;
+                g_ringingIdx = -1;
+                enterPage(g_page);
+            }
+        }
+        return;
+    }
+
+    // 2) Night Mode wakes up on any tap for 2 minutes
+    if (g_page == PageId::NIGHT) {
+        g_nightWakeUntilMs = now + 120000UL;
+        enterPage(PageId::CLOCK);
+        return;
+    }
+
+    // 3) Settings sub-page
+    if (g_page == PageId::SETTINGS) {
         if (ev.type != TouchEventType::TAP) return;
         if (RECT_SET_WIFI.contains(ev.x, ev.y)) {
             runSetupPortal(tft, g_cfg);
@@ -113,57 +213,84 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
             runTouchCalibration(tft);
             uiSettingsDraw(tft, g_cfg);
         } else if (RECT_SET_BACK.contains(ev.x, ev.y)) {
-            enterPage(g_page);
+            enterPage(PageId::MENU);
         }
         return;
     }
 
+    // 4) Horizontal swipes
     if (ev.type == TouchEventType::SWIPE_LEFT) {
-        if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) {
-            stepNews(1, now);
-        } else {
-            stepPage(1);
-        }
+        if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) stepNews(1, now);
+        else if (g_page == PageId::CLOCK) enterPage(PageId::MARKET);
+        else if (g_page == PageId::MARKET) enterPage(PageId::NEWS);
+        else if (g_page == PageId::NEWS) enterPage(PageId::MENU);
+        else enterPage(PageId::CLOCK);
         return;
     }
-
     if (ev.type == TouchEventType::SWIPE_RIGHT) {
-        if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) {
-            stepNews(-1, now);
+        if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) stepNews(-1, now);
+        else if (g_page == PageId::MENU) enterPage(PageId::NEWS);
+        else if (g_page == PageId::NEWS) enterPage(PageId::MARKET);
+        else if (g_page == PageId::MARKET) enterPage(PageId::CLOCK);
+        else enterPage(PageId::MENU);
+        return;
+    }
+
+    // 5) Shared Bottom 4-Tab Nav Bar
+    if (RECT_NAV_CLOCK.contains(ev.x, ev.y))  { enterPage(PageId::CLOCK);  return; }
+    if (RECT_NAV_MARKET.contains(ev.x, ev.y)) { enterPage(PageId::MARKET); return; }
+    if (RECT_NAV_NEWS.contains(ev.x, ev.y))   { enterPage(PageId::NEWS);   return; }
+    if (RECT_NAV_MENU.contains(ev.x, ev.y))   { enterPage(PageId::MENU);   return; }
+
+    // 6) Top bar contextual right pill
+    if (RECT_TOP_PILL.contains(ev.x, ev.y)) {
+        if (g_page == PageId::CLOCK) {
+            g_cfg.clockTheme = (g_cfg.clockTheme + 1) % static_cast<uint8_t>(ClockTheme::COUNT);
+            saveConfig(g_cfg);
+            enterPage(PageId::CLOCK);
+        } else if (g_page == PageId::WEATHER) {
+            netRequestWeatherRefresh();
+            g_dirty = true;
+        } else if (g_page == PageId::MARKET) {
+            netRequestMarketRefresh();
+            g_dirty = true;
+        } else if (g_page == PageId::NEWS) {
+            netRequestNewsRefresh(g_cfg.newsTopic);
+            g_dirty = true;
+        } else if (g_page == PageId::POMODORO) {
+            g_pomo.longPreset = !g_pomo.longPreset;
+            g_pomo.running = false;
+            g_pomo.onBreak = false;
+            g_pomo.totalSec = g_pomo.longPreset ? (50 * 60) : (25 * 60);
+            g_pomo.remainingSec = g_pomo.totalSec;
+            g_dirty = true;
         } else {
-            stepPage(-1);
+            enterPage(PageId::SETTINGS);
         }
         return;
     }
 
-    // TouchEventType::TAP
-    if (RECT_TOP_SETTINGS.contains(ev.x, ev.y)) {
-        g_inSettings = true;
-        uiSettingsDraw(tft, g_cfg);
-        return;
-    }
-    if (RECT_TAB_CLOCK.contains(ev.x, ev.y)) {
-        enterPage(PageId::CLOCK);
-        return;
-    }
-    if (RECT_TAB_WEATHER.contains(ev.x, ev.y)) {
-        enterPage(PageId::WEATHER);
-        return;
-    }
-    if (RECT_TAB_NEWS.contains(ev.x, ev.y)) {
-        enterPage(PageId::NEWS);
-        return;
-    }
-
-    if (g_page == PageId::CLOCK) {
-        if (RECT_CLOCK_MIN.contains(ev.x, ev.y)) {
-            uiClockTriggerDemoFlip(tft);
-        } else if (RECT_CLOCK_HOUR.contains(ev.x, ev.y)) {
+    // 7) Page-specific touch actions
+    if (g_page == PageId::MENU) {
+        const PageId targets[8] = {
+            PageId::CLOCK, PageId::WEATHER, PageId::MARKET, PageId::WORLD,
+            PageId::ALARM, PageId::NEWS, PageId::POMODORO, PageId::SETTINGS
+        };
+        for (int i = 0; i < 8; ++i) {
+            if (RECT_MENU_TILES[i].contains(ev.x, ev.y)) {
+                enterPage(targets[i]);
+                return;
+            }
+        }
+    } else if (g_page == PageId::CLOCK) {
+        if (ev.y >= 170 && ev.y < NAV_BAR_Y) {
+            enterPage(PageId::WEATHER);
+        } else if (ev.x >= 160) {
+            uiClockTriggerDemo(tft, g_cfg, g_wx);
+        } else {
             netRequestTimeSync();
             netRequestWeatherRefresh();
-            netRequestNewsRefresh(g_cfg.newsTopic);
-        } else if (RECT_CLOCK_DATE_WX.contains(ev.x, ev.y)) {
-            enterPage(PageId::WEATHER);
+            netRequestMarketRefresh();
         }
     } else if (g_page == PageId::WEATHER) {
         if (RECT_WEATHER_REFRESH.contains(ev.x, ev.y)) {
@@ -183,18 +310,90 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
             netRequestNewsRefresh(g_cfg.newsTopic);
             g_dirty = true;
         }
+    } else if (g_page == PageId::ALARM) {
+        if (g_alarmEditIdx >= 0 && g_alarmEditIdx < 3) {
+            AlarmItem& a = g_cfg.alarms[g_alarmEditIdx];
+            if (RECT_AEDIT_H_DEC.contains(ev.x, ev.y)) a.hour = (a.hour + 23) % 24;
+            else if (RECT_AEDIT_H_INC.contains(ev.x, ev.y)) a.hour = (a.hour + 1) % 24;
+            else if (RECT_AEDIT_M_DEC.contains(ev.x, ev.y)) a.minute = (a.minute + 55) % 60;
+            else if (RECT_AEDIT_M_INC.contains(ev.x, ev.y)) a.minute = (a.minute + 5) % 60;
+            else if (RECT_AEDIT_REP.contains(ev.x, ev.y)) a.repeatMode = (a.repeatMode + 1) % 3;
+            else if (RECT_AEDIT_DONE.contains(ev.x, ev.y)) {
+                saveConfig(g_cfg);
+                g_alarmEditIdx = -1;
+            }
+            g_dirty = true;
+        } else {
+            for (int i = 0; i < 3; ++i) {
+                if (RECT_ALARM_TOGGLE[i].contains(ev.x, ev.y)) {
+                    g_cfg.alarms[i].enabled = !g_cfg.alarms[i].enabled;
+                    saveConfig(g_cfg);
+                    g_dirty = true;
+                    return;
+                }
+                if (RECT_ALARM_EDIT[i].contains(ev.x, ev.y)) {
+                    g_alarmEditIdx = i;
+                    g_dirty = true;
+                    return;
+                }
+            }
+        }
+    } else if (g_page == PageId::POMODORO) {
+        if (RECT_POMO_TOGGLE.contains(ev.x, ev.y)) {
+            g_pomo.running = !g_pomo.running;
+            g_pomo.lastTickMs = now;
+            g_dirty = true;
+        } else if (RECT_POMO_RESET.contains(ev.x, ev.y)) {
+            g_pomo.running = false;
+            g_pomo.onBreak = false;
+            g_pomo.totalSec = g_pomo.longPreset ? (50 * 60) : (25 * 60);
+            g_pomo.remainingSec = g_pomo.totalSec;
+            g_dirty = true;
+        } else if (RECT_POMO_PRESET.contains(ev.x, ev.y)) {
+            g_pomo.longPreset = !g_pomo.longPreset;
+            g_pomo.running = false;
+            g_pomo.onBreak = false;
+            g_pomo.totalSec = g_pomo.longPreset ? (50 * 60) : (25 * 60);
+            g_pomo.remainingSec = g_pomo.totalSec;
+            g_dirty = true;
+        }
+    }
+}
+
+void handleWebAction(const WebAction& act) {
+    if (act.type == WebActionType::NONE) return;
+    if (act.type == WebActionType::SWITCH_PAGE) {
+        enterPage(static_cast<PageId>(act.value));
+    } else if (act.type == WebActionType::APPLY_THEME) {
+        if (g_page == PageId::CLOCK) enterPage(PageId::CLOCK);
+    } else if (act.type == WebActionType::APPLY_ROTATION) {
+        tft.setRotation(g_cfg.rotation);
+        enterPage(g_page);
+    } else if (act.type == WebActionType::CONFIG_UPDATED) {
+        g_dirty = true;
+        if (g_page == PageId::CLOCK) enterPage(PageId::CLOCK);
+    } else if (act.type == WebActionType::REFRESH_ALL) {
+        netRequestTimeSync();
+        netRequestWeatherRefresh();
+        netRequestMarketRefresh();
+        netRequestNewsRefresh(g_cfg.newsTopic);
+        g_dirty = true;
+    } else if (act.type == WebActionType::START_CALIBRATION) {
+        runTouchCalibration(tft);
+        enterPage(g_page);
+    } else if (act.type == WebActionType::START_PORTAL) {
+        runSetupPortal(tft, g_cfg);
     }
 }
 } // namespace
 
 void setup() {
     Serial.begin(115200);
+    loadConfig(g_cfg);
 
     tft.init();
-    tft.setRotation(1);
+    tft.setRotation(g_cfg.rotation);
     tft.fillScreen(COL_BG);
-
-    loadConfig(g_cfg);
 
     uint16_t cal[5] = {0};
     if (loadTouchCal(cal)) {
@@ -210,6 +409,12 @@ void setup() {
     connectWifiWithUi();
     netInit(g_cfg);
     netStartTask();
+    uiPomodoroInit(g_pomo);
+
+    if (WiFi.status() == WL_CONNECTED) {
+        webUiStart(g_cfg);
+        g_webStarted = true;
+    }
 
     enterPage(PageId::CLOCK);
 }
@@ -217,45 +422,96 @@ void setup() {
 void loop() {
     const uint32_t now = millis();
 
+    if (!g_webStarted && WiFi.status() == WL_CONNECTED) {
+        webUiStart(g_cfg);
+        g_webStarted = true;
+    }
+    webUiLoop();
+    handleWebAction(webUiPollAction());
+
     handleTouchEvent(touchPoll(tft), now);
+
+    // Alarm ringing flash & optional buzzer pulse
+    if (g_ringingIdx >= 0) {
+        if ((now - g_lastRingFlashMs) >= 550) {
+            g_lastRingFlashMs = now;
+            g_ringInvert = !g_ringInvert;
+            uiAlarmRingingDraw(tft, g_cfg.alarms[g_ringingIdx], g_ringInvert);
+            if (g_cfg.buzzerPin > 0) {
+                if (g_ringInvert) tone(g_cfg.buzzerPin, 2200, 200);
+            }
+        }
+        delay(5);
+        return;
+    }
+
+    if (uiPomodoroTick(g_pomo, now) && g_page == PageId::POMODORO) {
+        g_dirty = true;
+    }
 
     if ((now - g_lastUiPollMs) >= 100) {
         g_lastUiPollMs = now;
         netCopyWeather(g_wx);
         netCopyNews(g_news);
+        netCopyMarket(g_mk);
         const bool fetching = netIsFetching();
+
+        checkAlarmsAndNight(now);
 
         if (g_wx.updatedAtMs != g_lastWxMs) {
             g_lastWxMs = g_wx.updatedAtMs;
-            if (!g_inSettings && g_page == PageId::WEATHER) g_dirty = true;
+            if (g_page == PageId::WEATHER) g_dirty = true;
         }
         if (g_news.updatedAtMs != g_lastNewsMs) {
             g_lastNewsMs = g_news.updatedAtMs;
-            if (!g_inSettings && g_page == PageId::NEWS) g_dirty = true;
+            if (g_page == PageId::NEWS) g_dirty = true;
+        }
+        if (g_mk.updatedAtMs != g_lastMkMs) {
+            g_lastMkMs = g_mk.updatedAtMs;
+            if (g_page == PageId::MARKET) g_dirty = true;
         }
         if (fetching != g_lastFetching) {
             g_lastFetching = fetching;
-            if (!g_inSettings && g_page != PageId::CLOCK) g_dirty = true;
+            if (g_page != PageId::CLOCK && g_page != PageId::NIGHT && g_page != PageId::SETTINGS) {
+                g_dirty = true;
+            }
         }
 
-        if (!g_inSettings) {
-            if (g_page == PageId::CLOCK) {
-                uiClockTick(tft, g_cfg, g_wx, fetching);
-            } else if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) {
-                if ((now - g_newsCycleMs) >= NEWS_AUTO_CYCLE_MS) {
-                    g_newsCycleMs = now;
-                    g_newsIdx = (g_newsIdx + 1) % g_news.count;
-                    g_dirty = true;
-                }
+        if (g_page == PageId::CLOCK) {
+            uiClockTick(tft, g_cfg, g_wx, fetching);
+        } else if (g_page == PageId::WORLD) {
+            struct tm ti{};
+            if (getLocalTime(&ti, 2) && ti.tm_min != g_lastWorldMin) {
+                g_lastWorldMin = ti.tm_min;
+                g_dirty = true;
             }
+        } else if (g_page == PageId::NIGHT) {
+            struct tm ti{};
+            if (getLocalTime(&ti, 2) && ti.tm_min != g_lastNightMin) {
+                g_lastNightMin = ti.tm_min;
+                g_dirty = true;
+            }
+        } else if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) {
+            if ((now - g_newsCycleMs) >= NEWS_AUTO_CYCLE_MS) {
+                g_newsCycleMs = now;
+                g_newsIdx = (g_newsIdx + 1) % g_news.count;
+                g_dirty = true;
+            }
+        }
 
-            if (g_dirty) {
-                g_dirty = false;
-                if (g_page == PageId::WEATHER) {
-                    uiWeatherDraw(tft, g_cfg, g_wx, fetching);
-                } else if (g_page == PageId::NEWS) {
-                    uiNewsDraw(tft, g_news, g_newsIdx, fetching);
-                }
+        if (g_dirty) {
+            g_dirty = false;
+            switch (g_page) {
+                case PageId::WEATHER:  uiWeatherDraw(tft, g_cfg, g_wx, fetching); break;
+                case PageId::MARKET:   uiMarketDraw(tft, g_mk, fetching); break;
+                case PageId::WORLD:    uiWorldDraw(tft, g_cfg, fetching); break;
+                case PageId::ALARM:    uiAlarmDraw(tft, g_cfg, g_alarmEditIdx, fetching); break;
+                case PageId::NEWS:     uiNewsDraw(tft, g_news, g_newsIdx, fetching); break;
+                case PageId::POMODORO: uiPomodoroDraw(tft, g_pomo, fetching); break;
+                case PageId::MENU:     uiMenuDraw(tft); break;
+                case PageId::SETTINGS: uiSettingsDraw(tft, g_cfg); break;
+                case PageId::NIGHT:    uiNightDraw(tft, g_cfg, g_wx); break;
+                default: break;
             }
         }
     }

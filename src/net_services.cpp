@@ -13,10 +13,12 @@ namespace {
 DeviceConfig g_cfg{};
 WeatherData g_weather{};
 NewsData g_news{};
+MarketData g_market{};
 
 SemaphoreHandle_t g_mutex = nullptr;
 volatile bool g_reqWeather = true;
 volatile bool g_reqNews = true;
+volatile bool g_reqMarket = true;
 volatile bool g_reqTime = true;
 volatile uint8_t g_targetTopic = 0;
 volatile bool g_fetching = false;
@@ -83,7 +85,6 @@ String decodeXmlText(String s) {
 }
 
 void formatPubDateTrt(const String& raw, char* dst, size_t dstLen) {
-    // Example: "Wed, 25 Nov 2026 13:45:00 GMT"
     int colon = raw.indexOf(':');
     if (colon >= 2) {
         int hh = raw.substring(colon - 2, colon).toInt();
@@ -100,12 +101,19 @@ void formatPubDateTrt(const String& raw, char* dst, size_t dstLen) {
 bool fetchWeather() {
     if (WiFi.status() != WL_CONNECTED) return false;
 
+    float lat = 0.0f, lon = 0.0f;
+    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
+        lat = g_cfg.lat;
+        lon = g_cfg.lon;
+        xSemaphoreGive(g_mutex);
+    }
+
     char url[280];
     snprintf(url, sizeof(url),
              "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
              "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m"
              "&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4",
-             g_cfg.lat, g_cfg.lon);
+             lat, lon);
 
     WiFiClientSecure client;
     client.setInsecure();
@@ -255,7 +263,6 @@ bool fetchGoogleNews(uint8_t topicIdx) {
                         String cleanTitle = decodeXmlText(curTitle);
                         String cleanSource = decodeXmlText(curSource);
 
-                        // Split trailing " - Source" if source tag was absent or duplicated
                         int sep = cleanTitle.lastIndexOf(" - ");
                         if (sep > 12) {
                             if (cleanSource.length() == 0) {
@@ -314,10 +321,171 @@ bool fetchGoogleNews(uint8_t topicIdx) {
     return false;
 }
 
+float pctChange(float prev, float curr) {
+    if (prev <= 0.001f || curr <= 0.001f) return 0.0f;
+    return ((curr - prev) / prev) * 100.0f;
+}
+
+bool fetchMarket() {
+    if (WiFi.status() != WL_CONNECTED) return false;
+
+    MarketData prev{};
+    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
+        prev = g_market;
+        xSemaphoreGive(g_mutex);
+    }
+
+    float usd = 0.0f, eur = 0.0f, gbp = 0.0f, xau = 0.0f;
+    bool gotFx = false;
+
+    // 1) TCMB official rates XML (streaming parser)
+    {
+        WiFiClientSecure client;
+        client.setInsecure();
+        HTTPClient http;
+        http.useHTTP10(true);
+        http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+        http.setUserAgent("Mozilla/5.0");
+        http.setTimeout(10000);
+
+        if (http.begin(client, "https://www.tcmb.gov.tr/kurlar/today.xml")) {
+            const int code = http.GET();
+            if (code == HTTP_CODE_OK) {
+                WiFiClient* stream = http.getStreamPtr();
+                bool inTag = false;
+                String tagBuf;
+                String textBuf;
+                char curCode[8] = "";
+                float forexSell = 0.0f;
+                float bankSell = 0.0f;
+
+                uint32_t lastByteMs = millis();
+                while ((http.connected() || stream->available() > 0) && (millis() - lastByteMs) < 4000) {
+                    if (!stream->available()) {
+                        delay(2);
+                        continue;
+                    }
+                    lastByteMs = millis();
+                    const char ch = static_cast<char>(stream->read());
+                    if (ch == '<') {
+                        inTag = true;
+                        tagBuf = "";
+                        continue;
+                    }
+                    if (inTag) {
+                        if (ch == '>') {
+                            inTag = false;
+                            if (tagBuf.startsWith("Currency ") || tagBuf.startsWith("Currency\t")) {
+                                curCode[0] = '\0';
+                                forexSell = 0.0f;
+                                bankSell = 0.0f;
+                                int idx = tagBuf.indexOf("CurrencyCode=\"");
+                                if (idx >= 0) {
+                                    int endQ = tagBuf.indexOf('"', idx + 14);
+                                    if (endQ > idx + 14) {
+                                        String cc = tagBuf.substring(idx + 14, endQ);
+                                        strlcpy(curCode, cc.c_str(), sizeof(curCode));
+                                    }
+                                }
+                            } else if (tagBuf == "/Currency" && curCode[0] != '\0') {
+                                float val = (forexSell > 0.0f) ? forexSell : bankSell;
+                                if (strcmp(curCode, "USD") == 0) usd = val;
+                                else if (strcmp(curCode, "EUR") == 0) eur = val;
+                                else if (strcmp(curCode, "GBP") == 0) gbp = val;
+                                curCode[0] = '\0';
+                                if (usd > 0.0f && eur > 0.0f && gbp > 0.0f) {
+                                    gotFx = true;
+                                    break;
+                                }
+                            } else if (curCode[0] != '\0') {
+                                if (tagBuf == "ForexSelling" || tagBuf == "BanknoteSelling") {
+                                    textBuf = "";
+                                } else if (tagBuf == "/ForexSelling") {
+                                    textBuf.trim();
+                                    forexSell = textBuf.toFloat();
+                                } else if (tagBuf == "/BanknoteSelling") {
+                                    textBuf.trim();
+                                    bankSell = textBuf.toFloat();
+                                }
+                            }
+                        } else if (tagBuf.length() < 160) {
+                            tagBuf += ch;
+                        }
+                    } else if (curCode[0] != '\0' && textBuf.length() < 32) {
+                        textBuf += ch;
+                    }
+                }
+            }
+            http.end();
+        }
+    }
+
+    // 2) Live XAU/USD spot price (JSON)
+    {
+        WiFiClientSecure client;
+        client.setInsecure();
+        HTTPClient http;
+        http.useHTTP10(true);
+        http.setUserAgent("Mozilla/5.0");
+        http.setTimeout(8000);
+        if (http.begin(client, "https://api.gold-api.com/price/XAU")) {
+            if (http.GET() == HTTP_CODE_OK) {
+                JsonDocument doc;
+                if (!deserializeJson(doc, http.getStream())) {
+                    xau = doc["price"] | 0.0f;
+                }
+            }
+            http.end();
+        }
+    }
+
+    if (gotFx || xau > 0.0f) {
+        MarketData next = prev;
+        next.valid = true;
+        next.hasError = false;
+        if (usd > 0.0f) {
+            next.usdChg = prev.valid ? pctChange(prev.usdTry, usd) : 0.0f;
+            next.usdTry = usd;
+        }
+        if (eur > 0.0f) {
+            next.eurChg = prev.valid ? pctChange(prev.eurTry, eur) : 0.0f;
+            next.eurTry = eur;
+        }
+        if (gbp > 0.0f) {
+            next.gbpChg = prev.valid ? pctChange(prev.gbpTry, gbp) : 0.0f;
+            next.gbpTry = gbp;
+        }
+        if (xau > 0.0f) {
+            next.onsChg = prev.valid ? pctChange(prev.onsAltinUsd, xau) : 0.0f;
+            next.onsAltinUsd = xau;
+        }
+        if (next.usdTry > 0.0f && next.onsAltinUsd > 0.0f) {
+            const float gram = (next.onsAltinUsd / 31.1034768f) * next.usdTry;
+            next.gramChg = (prev.valid && prev.gramAltinTry > 0.0f) ? pctChange(prev.gramAltinTry, gram) : 0.0f;
+            next.gramAltinTry = gram;
+        }
+        next.updatedAtMs = millis();
+
+        if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(200))) {
+            g_market = next;
+            xSemaphoreGive(g_mutex);
+        }
+        return true;
+    }
+
+    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
+        g_market.hasError = true;
+        strlcpy(g_market.errorMsg, "Piyasa verisi alınamadı", sizeof(g_market.errorMsg));
+        xSemaphoreGive(g_mutex);
+    }
+    return false;
+}
+
 void netTask(void* param) {
     (void)param;
     uint32_t lastWeatherMs = 0;
     uint32_t lastNewsMs = 0;
+    uint32_t lastMarketMs = 0;
     uint32_t lastWifiCheckMs = 0;
 
     for (;;) {
@@ -345,6 +513,17 @@ void netTask(void* param) {
                 g_fetching = false;
             }
 
+            if (g_reqMarket || (lastMarketMs != 0 && (now - lastMarketMs) >= MARKET_REFRESH_MS)) {
+                g_reqMarket = false;
+                g_fetching = true;
+                if (fetchMarket()) {
+                    lastMarketMs = millis();
+                } else if (lastMarketMs == 0) {
+                    lastMarketMs = millis() - MARKET_REFRESH_MS + 30000UL;
+                }
+                g_fetching = false;
+            }
+
             if (g_reqNews || (lastNewsMs != 0 && (now - lastNewsMs) >= NEWS_REFRESH_MS)) {
                 g_reqNews = false;
                 const uint8_t topic = g_targetTopic;
@@ -364,11 +543,20 @@ void netTask(void* param) {
 } // namespace
 
 void netInit(const DeviceConfig& cfg) {
+    if (!g_mutex) {
+        g_mutex = xSemaphoreCreateMutex();
+    }
     g_cfg = cfg;
     g_targetTopic = cfg.newsTopic;
     g_news.topic = cfg.newsTopic;
-    if (!g_mutex) {
-        g_mutex = xSemaphoreCreateMutex();
+}
+
+void netUpdateConfig(const DeviceConfig& cfg) {
+    if (!g_mutex) return;
+    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
+        g_cfg = cfg;
+        g_targetTopic = cfg.newsTopic;
+        xSemaphoreGive(g_mutex);
     }
 }
 
@@ -376,18 +564,16 @@ void netStartTask() {
     xTaskCreatePinnedToCore(netTask, "netTask", 10240, nullptr, 1, nullptr, 0);
 }
 
-void netRequestWeatherRefresh() {
-    g_reqWeather = true;
-}
+void netRequestWeatherRefresh() { g_reqWeather = true; }
 
 void netRequestNewsRefresh(uint8_t topicIdx) {
     g_targetTopic = topicIdx;
     g_reqNews = true;
 }
 
-void netRequestTimeSync() {
-    g_reqTime = true;
-}
+void netRequestMarketRefresh() { g_reqMarket = true; }
+
+void netRequestTimeSync() { g_reqTime = true; }
 
 bool netCopyWeather(WeatherData& out) {
     if (!g_mutex) return false;
@@ -409,9 +595,17 @@ bool netCopyNews(NewsData& out) {
     return false;
 }
 
-bool netIsFetching() {
-    return g_fetching;
+bool netCopyMarket(MarketData& out) {
+    if (!g_mutex) return false;
+    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(25))) {
+        out = g_market;
+        xSemaphoreGive(g_mutex);
+        return true;
+    }
+    return false;
 }
+
+bool netIsFetching() { return g_fetching; }
 
 int netGetRssi() {
     return (WiFi.status() == WL_CONNECTED) ? WiFi.RSSI() : -100;

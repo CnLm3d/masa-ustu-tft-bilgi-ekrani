@@ -3,6 +3,7 @@
 #include "fonts/SegoeUI14TR.h"
 #include "fonts/SegoeUIBold88Digits.h"
 #include "net_services.h"
+#include "ui_clock_themes.h"
 #include "ui_common.h"
 #include <string.h>
 #include <time.h>
@@ -189,6 +190,16 @@ void uiClockEnter(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx)
 }
 
 void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, bool fetching) {
+    const ClockTheme theme = static_cast<ClockTheme>(
+        cfg.clockTheme < static_cast<uint8_t>(ClockTheme::COUNT) ? cfg.clockTheme : 0);
+
+    if (theme != ClockTheme::FLIP) {
+        const bool full = g_forceFull;
+        g_forceFull = false;
+        uiThemesTick(tft, theme, cfg, wx, fetching, full);
+        return;
+    }
+
     struct tm ti{};
     const bool timeValid = getLocalTime(&ti, 5);
     const int hh = timeValid ? ti.tm_hour : 0;
@@ -209,13 +220,13 @@ void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, 
     if (g_forceFull) {
         g_forceFull = false;
         tft.fillScreen(COL_BG);
-        drawTopBar(tft, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
+        drawTopBar(tft, "Yaprak Saat", "Tema", netGetRssi(), wifiOk, fetching);
         drawStaticCard(tft, HOUR_X, CARD_Y, newH);
         drawStaticCard(tft, MIN_X, CARD_Y, newM);
         drawColon(tft, (ss % 2) == 0);
         drawDateAndWeatherPill(tft, ti, timeValid, cfg, wx);
         drawSecondBar(tft, ss);
-        drawBottomTabs(tft, PageId::CLOCK);
+        drawBottomNav(tft, 0);
 
         g_lastHour = hh;
         g_lastMin  = mm;
@@ -230,7 +241,7 @@ void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, 
     if (fetching != g_lastFetching || wifiOk != g_lastWifiOk) {
         g_lastFetching = fetching;
         g_lastWifiOk   = wifiOk;
-        drawTopBar(tft, "Yaprak Saat", netGetRssi(), wifiOk, fetching);
+        drawTopBar(tft, "Yaprak Saat", "Tema", netGetRssi(), wifiOk, fetching);
     }
 
     if (timeValid && hh != g_lastHour && g_lastHour >= 0) {
@@ -266,7 +277,15 @@ void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, 
     }
 }
 
-void uiClockTriggerDemoFlip(TFT_eSPI& tft) {
+void uiClockTriggerDemo(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx) {
+    const ClockTheme theme = static_cast<ClockTheme>(
+        cfg.clockTheme < static_cast<uint8_t>(ClockTheme::COUNT) ? cfg.clockTheme : 0);
+
+    if (theme != ClockTheme::FLIP) {
+        uiThemesDemo(tft, theme, cfg, wx);
+        return;
+    }
+
     struct tm ti{};
     if (!getLocalTime(&ti, 5)) {
         animateFlipCard(tft, MIN_X, CARD_Y, "59", "00");

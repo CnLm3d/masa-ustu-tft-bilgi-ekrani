@@ -5,7 +5,25 @@
 enum class PageId : uint8_t {
     CLOCK = 0,
     WEATHER,
+    MARKET,
+    WORLD,
+    ALARM,
     NEWS,
+    POMODORO,
+    MENU,
+    SETTINGS,
+    NIGHT,
+    COUNT
+};
+
+enum class ClockTheme : uint8_t {
+    FLIP = 0,
+    NIXIE,
+    DIGITAL,
+    ROLEX,
+    PATEK,
+    MARIO,
+    TETRIS,
     COUNT
 };
 
@@ -18,6 +36,19 @@ enum class NewsTopic : uint8_t {
     COUNT
 };
 
+struct AlarmItem {
+    uint8_t hour;
+    uint8_t minute;
+    bool enabled;
+    uint8_t repeatMode; // 0=Her Gün, 1=Hafta İçi, 2=Hafta Sonu
+    char label[24];
+};
+
+struct WorldCity {
+    char name[20];
+    int16_t utcOffsetMin;
+};
+
 struct DeviceConfig {
     char ssid[33];
     char pass[65];
@@ -25,10 +56,18 @@ struct DeviceConfig {
     float lat;
     float lon;
     uint8_t newsTopic;
+    uint8_t clockTheme;
+    uint8_t rotation; // 1 (landscape) or 3 (180 deg)
+    bool nightEnabled;
+    uint8_t nightStartHour;
+    uint8_t nightEndHour;
+    uint8_t buzzerPin;
+    AlarmItem alarms[3];
+    WorldCity worldCities[4];
 };
 
 struct ForecastDay {
-    char dateIso[12]; // YYYY-MM-DD
+    char dateIso[12];
     int wmoCode;
     float tempMax;
     float tempMin;
@@ -44,7 +83,24 @@ struct WeatherData {
     int humidity;
     int wmoCode;
     bool isDay;
-    ForecastDay daily[4]; // [0]=today, [1..3]=next 3 days
+    ForecastDay daily[4];
+    uint32_t updatedAtMs;
+};
+
+struct MarketData {
+    bool valid;
+    bool hasError;
+    char errorMsg[48];
+    float usdTry;
+    float eurTry;
+    float gbpTry;
+    float gramAltinTry;
+    float onsAltinUsd;
+    float usdChg;
+    float eurChg;
+    float gbpChg;
+    float gramChg;
+    float onsChg;
     uint32_t updatedAtMs;
 };
 
@@ -81,4 +137,14 @@ inline const char* const TR_MONTHS_SHORT[] = {
 
 inline const char* const TR_TOPIC_NAMES[] = {
     "Gündem", "Teknoloji", "Ekonomi", "Bilim", "Spor"
+};
+
+inline const char* const TR_THEME_NAMES[] = {
+    "Yaprak Saat",
+    "Nixie Tüp",
+    "Dijital LED",
+    "Rolex Submariner",
+    "Patek Nautilus",
+    "Mario Saat",
+    "Tetris Saat"
 };

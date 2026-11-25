@@ -28,7 +28,7 @@ const char* dayLabelFromIso(const char* iso, int offsetIdx) {
 
 void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, bool fetching) {
     tft.fillScreen(COL_BG);
-    drawTopBar(tft, cfg.city, netGetRssi(), netIsWifiConnected(), fetching);
+    drawTopBar(tft, cfg.city, "Yenile", netGetRssi(), netIsWifiConnected(), fetching);
 
     if (!wx.valid) {
         tft.fillRoundRect(16, 44, SCREEN_W - 32, 136, 12, COL_SURFACE);
@@ -46,11 +46,10 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.drawString("Yenilemek için karta dokunun", SCREEN_W / 2, 132);
         tft.unloadFont();
 
-        drawBottomTabs(tft, PageId::WEATHER);
+        drawBottomNav(tft, 3);
         return;
     }
 
-    // Hero current weather card (tappable to refresh)
     tft.fillRoundRect(12, 32, SCREEN_W - 24, 88, 10, COL_SURFACE);
     tft.drawRoundRect(12, 32, SCREEN_W - 24, 88, 10, COL_BORDER);
 
@@ -64,7 +63,6 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.drawString(tempBuf, 78, 35);
     tft.unloadFont();
 
-    // Right metrics stack
     char line1[28], line2[28], line3[28];
     snprintf(line1, sizeof(line1), "Hissedilen: %.0f°", wx.feelsLikeC);
     snprintf(line2, sizeof(line2), "Nem: %%%d", wx.humidity);
@@ -86,7 +84,6 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.drawString(wmoToTurkish(wx.wmoCode), 22, 96);
     tft.unloadFont();
 
-    // Tappable [Yenile] pill inside hero footer
     tft.fillRoundRect(240, 95, 60, 20, 6, COL_BG);
     tft.drawRoundRect(240, 95, 60, 20, 6, COL_ACCENT);
     tft.loadFont(SegoeUI14TR);
@@ -95,7 +92,6 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
     tft.drawString("Yenile", 270, 105);
     tft.unloadFont();
 
-    // 3-day forecast strip
     const int16_t cardW = 94;
     const int16_t cardH = 76;
     const int16_t gap = 7;
@@ -124,5 +120,5 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.unloadFont();
     }
 
-    drawBottomTabs(tft, PageId::WEATHER);
+    drawBottomNav(tft, 3);
 }

@@ -9,4 +9,4 @@ constexpr Rect RECT_CLOCK_DATE_WX = {16, 170, 288, 30};
 
 void uiClockEnter(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx);
 void uiClockTick(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx, bool fetching);
-void uiClockTriggerDemoFlip(TFT_eSPI& tft);
+void uiClockTriggerDemo(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx);

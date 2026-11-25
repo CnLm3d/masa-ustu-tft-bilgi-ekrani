@@ -154,14 +154,54 @@ void loadConfig(DeviceConfig& cfg) {
     cfg.lat = prefs.getFloat("lat", DEFAULT_CITY_LAT);
     cfg.lon = prefs.getFloat("lon", DEFAULT_CITY_LON);
     cfg.newsTopic = prefs.getUChar("topic", 0);
+    cfg.clockTheme = prefs.getUChar("theme", 0);
+    cfg.rotation = prefs.getUChar("rot", 1);
+    cfg.nightEnabled = prefs.getBool("nightEn", false);
+    cfg.nightStartHour = prefs.getUChar("nightS", 23);
+    cfg.nightEndHour = prefs.getUChar("nightE", 7);
+    cfg.buzzerPin = prefs.getUChar("buzz", DEFAULT_BUZZER_PIN);
+
+    const uint8_t defH[3] = {7, 9, 18};
+    const uint8_t defM[3] = {30, 0, 45};
+    const bool defEn[3] = {false, false, false};
+    const uint8_t defRep[3] = {1, 2, 0};
+    const char* const defLbl[3] = {"Hafta İçi", "Hafta Sonu", "Mola / İlaç"};
+
+    for (int i = 0; i < 3; ++i) {
+        char kh[8], km[8], ke[8], kr[8], kl[8];
+        snprintf(kh, sizeof(kh), "a%dh", i);
+        snprintf(km, sizeof(km), "a%dm", i);
+        snprintf(ke, sizeof(ke), "a%de", i);
+        snprintf(kr, sizeof(kr), "a%dr", i);
+        snprintf(kl, sizeof(kl), "a%dl", i);
+        cfg.alarms[i].hour = prefs.getUChar(kh, defH[i]) % 24;
+        cfg.alarms[i].minute = prefs.getUChar(km, defM[i]) % 60;
+        cfg.alarms[i].enabled = prefs.getBool(ke, defEn[i]);
+        cfg.alarms[i].repeatMode = prefs.getUChar(kr, defRep[i]) % 3;
+        String lbl = prefs.getString(kl, defLbl[i]);
+        strlcpy(cfg.alarms[i].label, lbl.c_str(), sizeof(cfg.alarms[i].label));
+    }
+
+    const char* const defCity[4] = {"İstanbul", "Londra", "New York", "Tokyo"};
+    const int16_t defOff[4] = {180, 0, -300, 540};
+    for (int i = 0; i < 4; ++i) {
+        char kn[8], ko[8];
+        snprintf(kn, sizeof(kn), "w%dn", i);
+        snprintf(ko, sizeof(ko), "w%do", i);
+        String wn = prefs.getString(kn, defCity[i]);
+        strlcpy(cfg.worldCities[i].name, wn.c_str(), sizeof(cfg.worldCities[i].name));
+        cfg.worldCities[i].utcOffsetMin = prefs.getShort(ko, defOff[i]);
+    }
     prefs.end();
 
     strlcpy(cfg.ssid, ssid.c_str(), sizeof(cfg.ssid));
     strlcpy(cfg.pass, pass.c_str(), sizeof(cfg.pass));
     strlcpy(cfg.city, city.c_str(), sizeof(cfg.city));
-    if (cfg.newsTopic >= static_cast<uint8_t>(NewsTopic::COUNT)) {
-        cfg.newsTopic = 0;
-    }
+    if (cfg.newsTopic >= static_cast<uint8_t>(NewsTopic::COUNT)) cfg.newsTopic = 0;
+    if (cfg.clockTheme >= static_cast<uint8_t>(ClockTheme::COUNT)) cfg.clockTheme = 0;
+    if (cfg.rotation != 1 && cfg.rotation != 3) cfg.rotation = 1;
+    cfg.nightStartHour %= 24;
+    cfg.nightEndHour %= 24;
 }
 
 void saveConfig(const DeviceConfig& cfg) {
@@ -173,6 +213,34 @@ void saveConfig(const DeviceConfig& cfg) {
     prefs.putFloat("lat", cfg.lat);
     prefs.putFloat("lon", cfg.lon);
     prefs.putUChar("topic", cfg.newsTopic);
+    prefs.putUChar("theme", cfg.clockTheme);
+    prefs.putUChar("rot", cfg.rotation);
+    prefs.putBool("nightEn", cfg.nightEnabled);
+    prefs.putUChar("nightS", cfg.nightStartHour);
+    prefs.putUChar("nightE", cfg.nightEndHour);
+    prefs.putUChar("buzz", cfg.buzzerPin);
+
+    for (int i = 0; i < 3; ++i) {
+        char kh[8], km[8], ke[8], kr[8], kl[8];
+        snprintf(kh, sizeof(kh), "a%dh", i);
+        snprintf(km, sizeof(km), "a%dm", i);
+        snprintf(ke, sizeof(ke), "a%de", i);
+        snprintf(kr, sizeof(kr), "a%dr", i);
+        snprintf(kl, sizeof(kl), "a%dl", i);
+        prefs.putUChar(kh, cfg.alarms[i].hour);
+        prefs.putUChar(km, cfg.alarms[i].minute);
+        prefs.putBool(ke, cfg.alarms[i].enabled);
+        prefs.putUChar(kr, cfg.alarms[i].repeatMode);
+        prefs.putString(kl, cfg.alarms[i].label);
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        char kn[8], ko[8];
+        snprintf(kn, sizeof(kn), "w%dn", i);
+        snprintf(ko, sizeof(ko), "w%do", i);
+        prefs.putString(kn, cfg.worldCities[i].name);
+        prefs.putShort(ko, cfg.worldCities[i].utcOffsetMin);
+    }
     prefs.end();
 }
 
