@@ -22,32 +22,33 @@ FONT_BOLD = r"C:\Windows\Fonts\segoeuib.ttf"
 FONT_REG = r"C:\Windows\Fonts\segoeui.ttf"
 
 # ---------------------------------------------------------------------------
-# PARAMETRIC DIMENSIONS (mm) — TJCTM24024-SPI + 15 deg Braun-style desk wedge
+# PARAMETRIC DIMENSIONS (mm) — 77x42mm PCB (68x37mm holes) + 15 deg wedge
 # ---------------------------------------------------------------------------
-OUTER_W = 96.0
-OUTER_H = 60.0
+OUTER_W = 112.0
+OUTER_H = 66.0
 CORNER_R = 6.0
-WALL = 2.8
+WALL = 2.6
 FRONT_WALL = 2.4
 CHAMFER = 1.6
-SHELL_DEPTH = 38.0
+SHELL_DEPTH = 44.0
 TILT_DEG = 15.0
 SHEAR_Y = math.tan(math.radians(TILT_DEG))  # ~0.26795
 
-# TFT TJCTM24024-SPI active opening & mounting bosses
-WIN_W = 51.0
-WIN_H = 38.8
-WIN_OFF_X = -1.5  # shifted toward SD side so right-side 14-pin header clears bezel
-TFT_HOLE_DX = 70.5
-TFT_HOLE_DY = 36.2
-TFT_BOSS_H = 2.6  # Z = 2.4 .. 5.0 (matches 2.4mm LCD frame height)
+# TFT active opening & 68x37mm bosses shifted -3.5mm so window stays centered
+WIN_W = 50.8
+WIN_H = 38.4
+WIN_OFF_X = 0.0
+TFT_HOLE_DX = 68.0
+TFT_HOLE_DY = 37.0
+TFT_HOLE_CX = -3.5
+TFT_BOSS_H = 2.8
 
-# Back cover & rear M3 bosses
+# Back cover & rear M3 bosses (outside 77x42 PCB & deep behind DuPont pins)
 COVER_THICK = 2.6
 LIP_H = 1.8
 FIT_CLEAR = 0.35
-REAR_HOLE_DX = 83.0
-REAR_HOLE_DY = 47.0
+REAR_HOLE_DX = 99.0
+REAR_HOLE_DY = 53.0
 
 
 def rounded_rect_cs(w: float, h: float, r: float, segs: int = 36) -> m3d.CrossSection:
@@ -116,7 +117,7 @@ def build_front_shell() -> m3d.Manifold:
     boss_h = TFT_BOSS_H + 0.3
     for sx in (-1.0, 1.0):
         for sy in (-1.0, 1.0):
-            bx = sx * (TFT_HOLE_DX * 0.5)
+            bx = TFT_HOLE_CX + sx * (TFT_HOLE_DX * 0.5)
             by = sy * (TFT_HOLE_DY * 0.5)
             boss = m3d.Manifold.cylinder(boss_h, 3.2, 3.2, 24).translate([bx, by, boss_z0])
             pilot = m3d.Manifold.cylinder(TFT_BOSS_H + 1.2, 1.35, 1.35, 20).translate([bx, by, 1.3])
@@ -124,7 +125,7 @@ def build_front_shell() -> m3d.Manifold:
 
     # 3) 4 rear corner M3 cover-mounting bosses at rear cover plane (clipped to outer_sheared)
     rear_z_top = SHELL_DEPTH - COVER_THICK
-    rear_z_bot = 25.0
+    rear_z_bot = 31.0
     rear_shift = rear_z_top * SHEAR_Y
     boss_add = m3d.Manifold()
     boss_sub = m3d.Manifold()
@@ -401,8 +402,8 @@ def build_showcase_png(front: m3d.Manifold, back: m3d.Manifold, assembled: m3d.M
     back_exploded = back_mated.rotate([90.0 + TILT_DEG, 0, 0]).rotate([0, 0, 180.0]).translate([0, 38.0, z_lift])
 
     # Build-plate side-by-side layout at Z=0
-    plate_front = front.translate([-58.0, -5.0, 0.0])
-    plate_back = back.translate([58.0, 0.0, 0.0])
+    plate_front = front.translate([-66.0, -5.0, 0.0])
+    plate_back = back.translate([66.0, 0.0, 0.0])
 
     pw, ph = 660, 430
     p1 = rasterize_meshes(
@@ -448,7 +449,7 @@ def build_showcase_png(front: m3d.Manifold, back: m3d.Manifold, assembled: m3d.M
 
     d.text(
         (700, 982),
-        "Dış Boyut: 96×60 mm  •  Malzeme: PLA / PETG  •  Katman: 0.20 mm  •  Dolgu: %18  •  Vida: 4× M3×6 + 4× M3×8",
+        "Dış Boyut: 112×66 mm  •  TFT Delik: 68×37 mm (77×42 PCB)  •  Pin Boşluğu: ~11.5 mm  •  PLA/PETG 0.20 mm Desteksiz",
         font=f_s, fill=(155, 165, 180), anchor="mm",
     )
 

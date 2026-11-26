@@ -3,29 +3,30 @@
 
 $fn = 48;
 
-outer_w = 96.0;
-outer_h = 60.0;
+outer_w = 112.0;
+outer_h = 66.0;
 corner_r = 6.0;
-wall = 2.8;
+wall = 2.6;
 front_wall = 2.4;
 chamfer = 1.6;
-shell_depth = 38.0;
+shell_depth = 44.0;
 tilt_deg = 15.0;
 shear_y = tan(tilt_deg);
 
-win_w = 51.0;
-win_h = 38.8;
-win_off_x = -1.5;
+win_w = 50.8;
+win_h = 38.4;
+win_off_x = 0.0;
 
-tft_hole_dx = 70.5;
-tft_hole_dy = 36.2;
-tft_boss_h = 2.6;
+tft_hole_dx = 68.0;
+tft_hole_dy = 37.0;
+tft_hole_cx = -3.5;
+tft_boss_h = 2.8;
 
 cover_thick = 2.6;
 lip_h = 1.8;
 fit_clear = 0.35;
-rear_hole_dx = 83.0;
-rear_hole_dy = 47.0;
+rear_hole_dx = 99.0;
+rear_hole_dy = 53.0;
 
 module rrect(w, h, r) {
     offset(r = r) square([w - 2 * r, h - 2 * r], center = true);
@@ -59,9 +60,9 @@ module front_shell() {
             translate([0, -outer_h/2 + (shell_depth - cover_thick)*shear_y + 1.5, shell_depth - cover_thick - 5])
                 linear_extrude(10) rrect(15, 12, 3.5);
         }
-        // TFT M3 standoffs
+        // TFT M3 standoffs (68x37mm centered at -3.5mm so active screen aligns with window)
         for (sx = [-1, 1], sy = [-1, 1]) {
-            translate([sx * tft_hole_dx/2, sy * tft_hole_dy/2, front_wall - 0.2])
+            translate([tft_hole_cx + sx * tft_hole_dx/2, sy * tft_hole_dy/2, front_wall - 0.2])
                 difference() {
                     cylinder(h = tft_boss_h + 0.2, r = 3.2);
                     translate([0, 0, -1.0]) cylinder(h = tft_boss_h + 2.0, r = 1.35);
@@ -99,5 +100,5 @@ module back_cover() {
 }
 
 // Print layout (both flat at Z=0)
-translate([-58, 0, 0]) front_shell();
-translate([58, 0, 0]) back_cover();
+translate([-66, 0, 0]) front_shell();
+translate([66, 0, 0]) back_cover();

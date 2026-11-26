@@ -181,15 +181,15 @@ Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'
 
 ## 3D Baskı Kutu (`enclosure/`)
 
-Desteksiz (support-free) basılabilen, 15° masaüstü eğimli 2 parçalı **PLA/PETG** kasa dosyaları `enclosure/stl/` içindedir:
+Desteksiz (support-free) basılabilen, `112×66×44 mm` boyutlu, `68×37 mm` (`77×42 mm` PCB) TFT delik aralıklı ve **14-pin `J2` / DuPont kablo için ~11.5 mm yan + ekstra derinlik boşluklu** 15° eğimli **PLA/PETG** kasa dosyaları `enclosure/stl/` içindedir:
 
 ![3D Baskı Kutu Önizlemesi](enclosure/enclosure_preview.png)
 
 | Parça | Dosya | Baskı Ayarı |
 |---|---|---|
-| Ön Gövde | [`enclosure/stl/deskhub_front_shell.stl`](enclosure/stl/deskhub_front_shell.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~30 g) |
-| Arka Kapak | [`enclosure/stl/deskhub_back_cover.stl`](enclosure/stl/deskhub_back_cover.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~11 g) |
-| Parametrik SCAD | [`enclosure/deskhub_enclosure.scad`](enclosure/deskhub_enclosure.scad) | OpenSCAD ile özelleştirilebilir |
+| Ön Gövde | [`enclosure/stl/deskhub_front_shell.stl`](enclosure/stl/deskhub_front_shell.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~39 g) |
+| Arka Kapak | [`enclosure/stl/deskhub_back_cover.stl`](enclosure/stl/deskhub_back_cover.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~15 g) |
+| Parametrik SCAD | [`enclosure/deskhub_enclosure.scad`](enclosure/deskhub_enclosure.scad) | OpenSCAD ile özelleştirilebilir (`68×37 mm` @ `cx=-3.5 mm`) |
 
 - **Vida Listesi:** `4× M3×6` (TFT montajı) + `4× M3×8` havşalı (arka kapak).
 
