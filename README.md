@@ -1,13 +1,14 @@
-# ESP32 DeskHub v2.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı
+# ESP32 DeskHub v3.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı & Bluetooth/Spotify Ses İstasyonu
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-ESP32%20%7C%20ESP32--C3-00979D?style=for-the-badge&logo=espressif" alt="ESP32">
-  <img src="https://img.shields.io/badge/Display-2.4%22%20320x240%20ILI9341%20Touch-3893FF?style=for-the-badge" alt="ILI9341">
+  <img src="https://img.shields.io/badge/Display-2.4%22%20ILI9341%20%7C%204%22%20Waveshare%20ILI9486-3893FF?style=for-the-badge" alt="Display">
+  <img src="https://img.shields.io/badge/Audio-PCM5102A%20I2S%20%2B%20BT%20A2DP%20%2B%20Spotify-1DB954?style=for-the-badge" alt="Audio">
   <img src="https://img.shields.io/badge/Web%20UI-deskhub.local-FFA400?style=for-the-badge" alt="Web UI">
   <img src="https://img.shields.io/badge/Framework-PlatformIO%20%7C%20Arduino-2DD264?style=for-the-badge" alt="PlatformIO">
 </p>
 
-**TJCTM24024-SPI (2.4" 320×240 ILI9341 + XPT2046 Dokunmatik)** ve **ESP32 DevKit / NodeMCU-32S / ESP32-C3 Mini** ile çalışan, tamamen dokunmatik kontrollü ve dahili **Web UI (`http://deskhub.local`)** üzerinden yönetilebilen masaüstü akıllı bilgi istasyonu.
+**2.4" 320×240 (`TJCTM24024-SPI` ILI9341)** ve **Waveshare 4" 480×320 (`RPi LCD (A)` ILI9486 + XPT2046)** ekranlar, **PCM5102A I2S DAC** ses çıkışı, **Bluetooth Classic A2DP Hoparlör / AVRCP** ve **Spotify Web API** desteğiyle çalışan, tamamen dokunmatik ve dahili **Web UI (`http://deskhub.local`)** kontrollü masaüstü bilgi istasyonu.
 
 ---
 
@@ -43,7 +44,11 @@
 
 ### Yeni Menüler & Akıllı Araçlar
 
-- **Ana Menü (4×2 Dokunmatik Izgara):** Alt bardaki `Menü` sekmesinden tüm uygulamalara tek dokunuşla erişim.
+- **Müzik, Bluetooth Hoparlör & Spotify:**
+  - **Bluetooth A2DP Hoparlör Modu (`PCM5102A I2S DAC`):** ESP32 Classic hedeflerinde (`esp32dev`, `esp32dev_4inch`) telefonunuzdan `ESP32-DeskHub` adıyla doğrudan ses akışı, AVRCP şarkı/sanatçı bilgisi, `<|`, `Oynat/Duraklat`, `|>`, ses kıs/aç ve canlı 16 segment stereo VU metre. *(ESP32 RAM sınırları gereği BT Hoparlör modunda Wi-Fi geçici kapatılır; `Wi-Fi` / `Spotify Wi-Fi` butonuna dokununca anında Wi-Fi moduna dönülür.)*
+  - **Spotify Wi-Fi Kontrolü:** Web UI üzerinden opsiyonel `Client ID`, `Client Secret` ve `Refresh Token` girildiğinde Wi-Fi modunda çalan parçayı, ilerleme çubuğunu ve uzaktan oynatma/ses kontrollerini sunar.
+  - **I2S Alarm Melodisi:** Wi-Fi modunda alarm çaldığında PCM5102A üzerinden tatlı çift tonlu uyandırma melodisi üretir.
+- **Ana Menü (4×2 Dokunmatik Izgara):** Alt bardaki `Menü` sekmesinden tüm uygulamalara tek dokunuşla erişim (ayarlar sağ üst `Ayar` butonundadır).
 - **Hava Durumu (Open-Meteo):** API anahtarsız anlık sıcaklık, hissedilen, nem, rüzgar, vektörel ikonlar ve 3 günlük Türkçe tahmin.
 - **Piyasa (TCMB & Altın):** Resmi `tcmb.gov.tr/kurlar/today.xml` üzerinden `USD/TRY`, `EUR/TRY`, `GBP/TRY` + canlı `Ons Altın ($)` ve `Gram Altın (₺)`.
 - **Dünya Saatleri:** Web UI'dan özelleştirilebilen 4 şehir (varsayılan: İstanbul, Londra, New York, Tokyo) + gündüz/gece göstergesi.
@@ -114,13 +119,45 @@ Ekran ve dahili **XPT2046 dokunmatik kontrolcüsü** aynı SPI hattını farklı
 | `T_DO` | `GPIO 19` | `GPIO 5` | `SDO (MISO)` ile paralel |
 | `T_IRQ` | *Boş* | *Boş* | Bağlanmaz (yoklama modu) |
 
+### Waveshare 4" RPi LCD (A) `320×480 ILI9486 + XPT2046` (`esp32dev_4inch`)
+
+Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'e bağlantısı (`RPI_DISPLAY_TYPE` shift-register uyumlu, SPI hızı **20 MHz** ile sınırlandırılmıştır):
+
+| Waveshare 26-Pin | Sinyal | ESP32 DevKit (`esp32dev_4inch`) | Açıklama |
+|---|---|---|---|
+| Pin `1 / 17` | `3.3V` | `3.3V` (veya Pin `2/4` → `5V`) | Modül kartındaki regülatöre göre `5V` (`Pin 2`) + `3.3V` (`Pin 1`) |
+| Pin `6 / 9 / 14 / 20 / 25` | `GND` | `GND` | Ortak şase |
+| Pin `18` | `LCD_RS / DC` | `GPIO 16` | Data / Command |
+| Pin `19` | `MOSI (DIN)` | `GPIO 23` | Paylaşılan SPI MOSI (TFT + Touch) |
+| Pin `21` | `MISO (DOUT)` | `GPIO 19` | Paylaşılan SPI MISO (TFT + Touch) |
+| Pin `22` | `RST` | `GPIO 17` | LCD Reset |
+| Pin `23` | `SCK` | `GPIO 18` | Paylaşılan SPI SCLK |
+| Pin `24` | `LCD_CS` | `GPIO 5` | TFT Chip Select |
+| Pin `26` | `TP_CS` | `GPIO 27` | XPT2046 Dokunmatik CS |
+
+### PCM5102A I2S Stereo DAC Bağlantısı (`esp32dev` / `esp32dev_4inch`)
+
+| PCM5102A Pini | ESP32 DevKit Pini | Açıklama |
+|---|---|---|
+| `VIN / VCC` | `5V` (veya `3.3V` modüle göre) | Güç beslemesi |
+| `GND` | `GND` | Ortak şase |
+| `SCK` | **`GND`** | Dahili PLL kullanılır (`GND`'ye bağlanmazsa ses gelmez!) |
+| `BCK` | `GPIO 26` | I2S Bit Clock |
+| `LCK / WS` | `GPIO 25` | I2S Left/Right Word Select |
+| `DIN` | `GPIO 22` | I2S Data Out (ESP32 → DAC) |
+| `FMT` | `GND` | Standart I2S formatı |
+| `XMT / XSMT` | `3.3V` | Mute kapalı (aktif çıkış; 10k dirençle 3.3V veya doğrudan 3.3V) |
+| `OUTL / OUTR` | `3.5 mm Jak / Amfi` | Hat seviyesi (Line-Out) aktif hoparlör/amfi bağlantısı |
+
+*(Not: `ESP32-C3 Mini` üzerinde Bluetooth Classic donanımı olmadığı için `HAS_BT_SPEAKER=0` tanımlıdır; yalnızca Wi-Fi üzerinden Spotify kontrolü aktiftir.)*
+
 ---
 
 ## Dokunmatik Kullanım & İlk Kurulum
 
 1. **İlk Kalibrasyon:** Cihaz ilk açılışta 4 köşe dokunmatik kalibrasyonu ister. Oklara sırayla dokunduğunuzda kalibrasyon NVS belleğe kaydedilir.
 2. **Wi-Fi Kurulumu:** Kayıtlı ağ yoksa cihaz **`ESP32-DeskHub`** adlı şifresiz Wi-Fi ağı açar. Bağlanıp **`http://192.168.4.1`** adresinden Wi-Fi ve şehrinizi kaydedin.
-3. **Alt Sekme Çubuğu (`Saat | Piyasa | Haber | Menü`):** Tek dokunuşla ana sayfalara geçiş; sağa/sola kaydırma ile sayfalar veya haberler arasında gezinme.
+3. **Alt Sekme Çubuğu (`Saat | Müzik | Piyasa | Menü`):** Tek dokunuşla ana sayfalara geçiş; sağa/sola kaydırma ile sayfalar veya haberler arasında gezinme. Menü ekranındayken sağ üst **`[Ayar]`** pill'i ile Ayarlar açılır.
 4. **Saat Ekranı Kısayolları:**
    - Sağ üst **`[Tema]`** butonu → 7 saat teması arasında geçiş
    - Dakika tarafına dokunma → aktif temanın animasyon demosu (Yaprak dönüş / Mario zıplama-vuruş / Tetris düşüş)
@@ -162,7 +199,13 @@ Desteksiz (support-free) basılabilen, 15° masaüstü eğimli 2 parçalı **PLA
 
 Proje **4 MB Flash** üzerinde **`huge_app.csv`** (3 MB uygulama bölümü) kullanır.
 
-**ESP32 DevKit / NodeMCU-32S (`esp32dev`):**
+**Waveshare 4" (`480×320`, `ILI9486`) + ESP32 DevKit (`esp32dev_4inch`):**
+```powershell
+pio run -e esp32dev_4inch
+pio run -e esp32dev_4inch -t upload
+```
+
+**2.4" (`320×240`, `ILI9341`) + ESP32 DevKit / NodeMCU-32S (`esp32dev`):**
 ```powershell
 pio run -e esp32dev
 pio run -e esp32dev -t upload

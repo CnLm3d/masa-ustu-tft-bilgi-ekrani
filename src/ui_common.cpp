@@ -44,21 +44,19 @@ void drawTopBar(TFT_eSPI& tft, const char* title, const char* rightPill,
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(title, 10, 12);
+    tft.drawString(title, SX(10), SY(12));
 
     if (rightPill && rightPill[0] != '\0') {
-        tft.fillRoundRect(216, 4, 48, 16, 5, COL_BG);
-        tft.drawRoundRect(216, 4, 48, 16, 5, COL_BORDER);
+        tft.fillRoundRect(SX(216), SY(4), SX(48), SY(16), 5, COL_BG);
+        tft.drawRoundRect(SX(216), SY(4), SX(48), SY(16), 5, COL_BORDER);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(COL_TEXT, COL_BG);
-        tft.drawString(rightPill, 240, 12);
+        tft.drawString(rightPill, SX(240), SY(12));
     }
     tft.unloadFont();
 
-    // Sync dot
-    tft.fillCircle(274, 12, 3, fetching ? COL_ACCENT_2 : COL_BORDER);
+    tft.fillCircle(SX(274), SY(12), SR(3), fetching ? COL_ACCENT_2 : COL_BORDER);
 
-    // Wi-Fi 4-bar signal meter
     int bars = 0;
     if (wifiOk) {
         if (rssi > -58) bars = 4;
@@ -67,22 +65,22 @@ void drawTopBar(TFT_eSPI& tft, const char* title, const char* rightPill,
         else bars = 1;
     }
     for (int b = 0; b < 4; ++b) {
-        const int16_t bx = 285 + b * 6;
-        const int16_t bh = 4 + b * 3;
-        const int16_t by = 19 - bh;
+        const int16_t bx = SX(285 + b * 6);
+        const int16_t bh = SY(4 + b * 3);
+        const int16_t by = SY(19) - bh;
         uint16_t c = (b < bars) ? COL_OK : COL_BORDER;
         if (!wifiOk) c = COL_ERR;
-        tft.fillRect(bx, by, 4, bh, c);
+        tft.fillRect(bx, by, SX(4), bh, c);
     }
 }
 
 void drawBottomNav(TFT_eSPI& tft, uint8_t activeTab) {
-    tft.fillRect(0, NAV_BAR_Y - 3, SCREEN_W, SCREEN_H - NAV_BAR_Y + 3, COL_BG);
+    tft.fillRect(0, NAV_BAR_Y - SY(3), SCREEN_W, SCREEN_H - NAV_BAR_Y + SY(3), COL_BG);
 
-    const char* const labels[4] = {"Saat", "Piyasa", "Haber", "Menü"};
-    const int16_t xs[4] = {4, 83, 162, 241};
-    const int16_t tabW = 75;
-    const int16_t tabH = 26;
+    const char* const labels[4] = {"Saat", "Müzik", "Piyasa", "Menü"};
+    const int16_t xs[4] = {SX(4), SX(83), SX(162), SX(241)};
+    const int16_t tabW = SX(75);
+    const int16_t tabH = NAV_BAR_H;
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
@@ -102,16 +100,16 @@ void drawBottomNav(TFT_eSPI& tft, uint8_t activeTab) {
 
 void uiMenuDraw(TFT_eSPI& tft) {
     tft.fillScreen(COL_BG);
-    drawTopBar(tft, "Ana Menü", "Tema", netGetRssi(), netIsWifiConnected(), netIsFetching());
+    drawTopBar(tft, "Ana Menü", "Ayar", netGetRssi(), netIsWifiConnected(), netIsFetching());
 
     const char* const labels[8] = {
         "Saat", "Hava", "Piyasa", "Dünya",
-        "Alarm", "Haber", "Odak", "Ayar"
+        "Alarm", "Haber", "Odak", "Müzik"
     };
-    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "⚙"};
+    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "♫"};
     const uint16_t cols[8] = {
         COL_ACCENT, COL_CYAN, COL_GOLD, COL_PURPLE,
-        COL_ERR, COL_ACCENT_2, COL_OK, COL_MUTED
+        COL_ERR, COL_ACCENT_2, COL_OK, COL_SPOTIFY
     };
 
     tft.loadFont(SegoeUI14TR);
@@ -122,14 +120,14 @@ void uiMenuDraw(TFT_eSPI& tft) {
         tft.drawRoundRect(r.x, r.y, r.w, r.h, 9, cols[i]);
 
         const int16_t icx = r.x + r.w / 2;
-        const int16_t icy = r.y + 28;
-        tft.drawCircle(icx, icy, 15, cols[i]);
-        tft.drawCircle(icx, icy, 14, cols[i]);
+        const int16_t icy = r.y + SY(28);
+        tft.drawCircle(icx, icy, SR(15), cols[i]);
+        tft.drawCircle(icx, icy, SR(14), cols[i]);
         tft.setTextColor(cols[i], COL_SURFACE);
-        tft.drawString(i == 7 ? "*" : badges[i], icx, icy);
+        tft.drawString(i == 7 ? "M" : badges[i], icx, icy);
 
         tft.setTextColor(COL_TEXT, COL_SURFACE);
-        tft.drawString(labels[i], icx, r.y + 60);
+        tft.drawString(labels[i], icx, r.y + SY(60));
     }
     tft.unloadFont();
 
@@ -164,7 +162,7 @@ void uiSettingsDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
     tft.setTextColor(COL_MUTED, COL_BG);
     char info[96];
     snprintf(info, sizeof(info), "Ağ: %s • Şehir: %s", cfg.ssid, cfg.city);
-    tft.drawString(info, SCREEN_W / 2, SCREEN_H - 10);
+    tft.drawString(info, SCREEN_W / 2, SCREEN_H - SY(10));
     tft.unloadFont();
 }
 
@@ -180,13 +178,13 @@ void uiNightDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx) 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TC_DATUM);
     tft.setTextColor(0x4081, TFT_BLACK);
-    tft.drawString("GECE MODU • DOKUN -> UYAN", SCREEN_W / 2, 16);
+    tft.drawString("GECE MODU • DOKUN -> UYAN", SCREEN_W / 2, SY(16));
     tft.unloadFont();
 
     tft.loadFont(SegoeUIBold88Digits);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_NIGHT_RED, TFT_BLACK);
-    tft.drawString(timeBuf, SCREEN_W / 2, 108);
+    tft.drawString(timeBuf, SCREEN_W / 2, SY(108));
     tft.unloadFont();
 
     tft.loadFont(SegoeUI14TR);
@@ -202,15 +200,14 @@ void uiNightDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx) 
     } else {
         strlcpy(sub, cfg.city, sizeof(sub));
     }
-    tft.drawString(sub, SCREEN_W / 2, 174);
+    tft.drawString(sub, SCREEN_W / 2, SY(174));
 
-    // Show next enabled alarm if any
     for (int i = 0; i < 3; ++i) {
         if (cfg.alarms[i].enabled) {
             char abuf[32];
             snprintf(abuf, sizeof(abuf), "Alarm: %02u:%02u", cfg.alarms[i].hour, cfg.alarms[i].minute);
             tft.setTextColor(0x7142, TFT_BLACK);
-            tft.drawString(abuf, SCREEN_W / 2, 202);
+            tft.drawString(abuf, SCREEN_W / 2, SY(202));
             break;
         }
     }

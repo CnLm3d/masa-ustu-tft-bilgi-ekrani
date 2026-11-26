@@ -18,6 +18,7 @@ struct WebAction {
 };
 
 void webUiStart(DeviceConfig& cfg);
+void webUiStop();
 void webUiSetActivePage(PageId page);
 void webUiLoop();
 WebAction webUiPollAction();

@@ -24,33 +24,33 @@ void uiNewsDraw(TFT_eSPI& tft, const NewsData& news, uint8_t itemIndex, bool fet
     drawTopBar(tft, header, "Yenile", netGetRssi(), netIsWifiConnected(), fetching);
 
     if (!news.valid || news.count == 0) {
-        tft.fillRoundRect(16, 44, SCREEN_W - 32, 124, 12, COL_SURFACE);
-        tft.drawRoundRect(16, 44, SCREEN_W - 32, 124, 12, COL_BORDER);
+        tft.fillRoundRect(SX(16), SY(44), SCREEN_W - SX(32), SY(124), 12, COL_SURFACE);
+        tft.drawRoundRect(SX(16), SY(44), SCREEN_W - SX(32), SY(124), 12, COL_BORDER);
         tft.loadFont(SegoeUIBold18TR);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(news.hasError ? COL_ERR : COL_ACCENT, COL_SURFACE);
         tft.drawString(news.hasError ? news.errorMsg : "Haberler yükleniyor...",
-                       SCREEN_W / 2, 94);
+                       SCREEN_W / 2, SY(94));
         tft.unloadFont();
 
         tft.loadFont(SegoeUI14TR);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(COL_MUTED, COL_SURFACE);
-        tft.drawString("Google Haberler TR bekleniyor", SCREEN_W / 2, 124);
+        tft.drawString("Google Haberler TR bekleniyor", SCREEN_W / 2, SY(124));
         drawActionButton(tft, RECT_NEWS_TOPIC, "Konu Değiş", COL_ACCENT);
         tft.unloadFont();
 
-        drawBottomNav(tft, 2);
+        drawBottomNav(tft, 3);
         return;
     }
 
     const uint8_t idx = itemIndex % news.count;
     const NewsItem& item = news.items[idx];
 
-    const int16_t cardX = 12;
-    const int16_t cardY = 32;
-    const int16_t cardW = SCREEN_W - 24;
-    const int16_t cardH = 136;
+    const int16_t cardX = SX(12);
+    const int16_t cardY = SY(32);
+    const int16_t cardW = SCREEN_W - SX(24);
+    const int16_t cardH = SY(136);
 
     tft.fillRoundRect(cardX, cardY, cardW, cardH, 10, COL_SURFACE);
     tft.drawRoundRect(cardX, cardY, cardW, cardH, 10, COL_BORDER);
@@ -58,34 +58,34 @@ void uiNewsDraw(TFT_eSPI& tft, const NewsData& news, uint8_t itemIndex, bool fet
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString(TR_TOPIC_NAMES[topicIdx], cardX + 12, cardY + 8);
+    tft.drawString(TR_TOPIC_NAMES[topicIdx], cardX + SX(12), cardY + SY(8));
 
     char countBuf[16];
     snprintf(countBuf, sizeof(countBuf), "%u / %u", idx + 1, news.count);
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(countBuf, cardX + cardW - 12, cardY + 8);
+    tft.drawString(countBuf, cardX + cardW - SX(12), cardY + SY(8));
     tft.unloadFont();
 
     tft.loadFont(SegoeUIBold18TR);
-    drawWrappedUtf8(tft, String(item.title), cardX + 12, cardY + 30,
-                    cardW - 24, 23, 3, COL_TEXT, COL_SURFACE);
+    drawWrappedUtf8(tft, String(item.title), cardX + SX(12), cardY + SY(30),
+                    cardW - SX(24), SY(23), 3, COL_TEXT, COL_SURFACE);
     tft.unloadFont();
 
-    tft.drawFastHLine(cardX + 12, cardY + cardH - 27, cardW - 24, COL_BORDER);
+    tft.drawFastHLine(cardX + SX(12), cardY + cardH - SY(27), cardW - SX(24), COL_BORDER);
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_ACCENT_2, COL_SURFACE);
-    tft.drawString(item.source, cardX + 12, cardY + cardH - 21);
+    tft.drawString(item.source, cardX + SX(12), cardY + cardH - SY(21));
 
     tft.setTextDatum(TR_DATUM);
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(item.timeStr, cardX + cardW - 12, cardY + cardH - 21);
+    tft.drawString(item.timeStr, cardX + cardW - SX(12), cardY + cardH - SY(21));
 
     drawActionButton(tft, RECT_NEWS_PREV, "< Önceki", COL_BORDER);
     drawActionButton(tft, RECT_NEWS_TOPIC, "Konu Değiş", COL_ACCENT);
     drawActionButton(tft, RECT_NEWS_NEXT, "Sonraki >", COL_BORDER);
     tft.unloadFont();
 
-    drawBottomNav(tft, 2);
+    drawBottomNav(tft, 3);
 }

@@ -10,6 +10,7 @@ enum class PageId : uint8_t {
     ALARM,
     NEWS,
     POMODORO,
+    MUSIC,
     MENU,
     SETTINGS,
     NIGHT,
@@ -62,8 +63,31 @@ struct DeviceConfig {
     uint8_t nightStartHour;
     uint8_t nightEndHour;
     uint8_t buzzerPin;
+    char btName[24];
+    uint8_t volume;
+    char spClientId[40];
+    char spClientSecret[40];
+    char spRefreshToken[160];
     AlarmItem alarms[3];
     WorldCity worldCities[4];
+};
+
+struct MusicState {
+    bool btActive;
+    bool btConnected;
+    bool spotifyValid;
+    bool isPlaying;
+    uint8_t volume;
+    uint8_t vuLeft;
+    uint8_t vuRight;
+    uint8_t sourceMode; // 0 = BT Speaker (PCM5102A), 1 = Spotify Wi-Fi API
+    char title[96];
+    char artist[64];
+    char album[64];
+    char statusMsg[48];
+    uint32_t progressMs;
+    uint32_t durationMs;
+    uint32_t updatedAtMs;
 };
 
 struct ForecastDay {

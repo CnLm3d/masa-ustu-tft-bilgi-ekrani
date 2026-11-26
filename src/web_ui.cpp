@@ -11,6 +11,7 @@ namespace {
 WebServer g_web(80);
 DeviceConfig* g_cfgPtr = nullptr;
 bool g_started = false;
+bool g_routesRegistered = false;
 PageId g_activePage = PageId::CLOCK;
 WebAction g_pending{WebActionType::NONE, 0};
 
@@ -19,7 +20,7 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ESP32 DeskHub v2.0 • Kontrol Paneli</title>
+<title>ESP32 DeskHub v3.0 • Kontrol Paneli</title>
 <style>
   :root{--bg:#0b0e14;--card:#141821;--in:#0d1118;--bd:#283040;--acc:#3893ff;--amb:#ffa400;--ok:#2dd264;--err:#fa3e3e;--gold:#f2c448;--tx:#f5f7fa;--mu:#8e95a2;}
   *{box-sizing:border-box}
@@ -56,7 +57,7 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <body>
 <div class="wrap">
   <div class="hdr">
-    <h1>ESP32 DeskHub v2.0 • Kontrol Paneli</h1>
+        <h1>ESP32 DeskHub v3.0 • Kontrol Paneli</h1>
     <div class="pills">
       <span class="pill" id="pIp">IP: ...</span>
       <span class="pill" id="pRssi">Wi-Fi: ...</span>
@@ -109,7 +110,21 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     </div>
 
     <div class="card">
-      <h2>Anlık Piyasa (TCMB & Altın) & Sistem</h2>
+      <h2>Spotify &amp; Bluetooth Hoparlör (PCM5102A I2S)</h2>
+      <div class="row">
+        <div><label>Bluetooth Hoparlör Adı</label><input id="btName" maxlength="23"></div>
+        <div><label>Varsayılan Ses (%0-100)</label><input id="vol" type="number" min="0" max="100"></div>
+      </div>
+      <div class="row">
+        <div><label>Spotify Client ID</label><input id="spId" maxlength="39" placeholder="Opsiyonel"></div>
+        <div><label>Spotify Client Secret</label><input id="spSec" type="password" maxlength="39" placeholder="Opsiyonel"></div>
+      </div>
+      <label>Spotify Refresh Token (OAuth)</label>
+      <input id="spRef" type="password" maxlength="159" placeholder="Opsiyonel — BT hoparlör için boş bırakabilirsiniz">
+    </div>
+
+    <div class="card">
+      <h2>Anlık Piyasa (TCMB &amp; Altın) &amp; Sistem</h2>
       <div class="mkt" id="mktBox"></div>
       <div class="row" style="margin-top:12px;">
         <button class="btn amb" onclick="doAct('portal')">Wi-Fi Kurulum Portalı</button>
@@ -121,7 +136,7 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <div class="toast" id="toast">Kaydedildi!</div>
 <script>
 const THEMES=['Yaprak','Nixie Tüp','Dijital LED','Rolex','Patek','Mario','Tetris'];
-const PAGES=[[0,'Saat'],[1,'Hava'],[2,'Piyasa'],[3,'Dünya'],[4,'Alarm'],[5,'Haber'],[6,'Odak'],[7,'Menü'],[9,'Gece']];
+const PAGES=[[0,'Saat'],[1,'Hava'],[2,'Piyasa'],[3,'Dünya'],[4,'Alarm'],[5,'Haber'],[6,'Odak'],[7,'Müzik'],[8,'Menü'],[9,'Ayar'],[10,'Gece']];
 let state=null;
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2200);}
@@ -172,6 +187,11 @@ async function load(){
   document.getElementById('lat').value=state.lat;
   document.getElementById('lon').value=state.lon;
   document.getElementById('topic').value=String(state.topic);
+  document.getElementById('btName').value=state.btName||'ESP32-DeskHub-BT';
+  document.getElementById('vol').value=state.vol??75;
+  document.getElementById('spId').value=state.spId||'';
+  document.getElementById('spSec').value=state.spSec||'';
+  document.getElementById('spRef').value=state.spRef||'';
 
   const wb=document.getElementById('worldBox'); wb.innerHTML='';
   state.world.forEach((w,i)=>{
@@ -201,6 +221,11 @@ async function saveAll(){
     nightS:parseInt(document.getElementById('nightS').value),
     nightE:parseInt(document.getElementById('nightE').value),
     buzz:parseInt(document.getElementById('buzz').value),
+    btName:document.getElementById('btName').value,
+    vol:parseInt(document.getElementById('vol').value||75),
+    spId:document.getElementById('spId').value,
+    spSec:document.getElementById('spSec').value,
+    spRef:document.getElementById('spRef').value,
     alarms:[0,1,2].map(i=>{
       const p=document.getElementById('at'+i).value.split(':');
       return {h:parseInt(p[0]||0),m:parseInt(p[1]||0),l:document.getElementById('al'+i).value,r:parseInt(document.getElementById('ar'+i).value),e:document.getElementById('ae'+i).value==='1'};
@@ -240,6 +265,11 @@ void handleState() {
     doc["nightS"] = g_cfgPtr->nightStartHour;
     doc["nightE"] = g_cfgPtr->nightEndHour;
     doc["buzz"] = g_cfgPtr->buzzerPin;
+    doc["btName"] = g_cfgPtr->btName;
+    doc["vol"] = g_cfgPtr->volume;
+    doc["spId"] = g_cfgPtr->spClientId;
+    doc["spSec"] = g_cfgPtr->spClientSecret;
+    doc["spRef"] = g_cfgPtr->spRefreshToken;
 
     JsonArray alarms = doc["alarms"].to<JsonArray>();
     for (int i = 0; i < 3; ++i) {
@@ -311,6 +341,14 @@ void handleConfigPost() {
     g_cfgPtr->nightStartHour = (doc["nightS"] | g_cfgPtr->nightStartHour) % 24;
     g_cfgPtr->nightEndHour = (doc["nightE"] | g_cfgPtr->nightEndHour) % 24;
     g_cfgPtr->buzzerPin = doc["buzz"] | g_cfgPtr->buzzerPin;
+    strlcpy(g_cfgPtr->btName, doc["btName"] | g_cfgPtr->btName, sizeof(g_cfgPtr->btName));
+    int vol = doc["vol"] | g_cfgPtr->volume;
+    if (vol < 0) vol = 0;
+    if (vol > 100) vol = 100;
+    g_cfgPtr->volume = static_cast<uint8_t>(vol);
+    strlcpy(g_cfgPtr->spClientId, doc["spId"] | g_cfgPtr->spClientId, sizeof(g_cfgPtr->spClientId));
+    strlcpy(g_cfgPtr->spClientSecret, doc["spSec"] | g_cfgPtr->spClientSecret, sizeof(g_cfgPtr->spClientSecret));
+    strlcpy(g_cfgPtr->spRefreshToken, doc["spRef"] | g_cfgPtr->spRefreshToken, sizeof(g_cfgPtr->spRefreshToken));
 
     JsonArray alarms = doc["alarms"].as<JsonArray>();
     for (int i = 0; i < 3 && i < static_cast<int>(alarms.size()); ++i) {
@@ -361,14 +399,24 @@ void webUiStart(DeviceConfig& cfg) {
     if (g_started) return;
 
     MDNS.begin(MDNS_HOSTNAME);
-    g_web.on("/", HTTP_GET, []() { g_web.send_P(200, "text/html; charset=utf-8", WEB_UI_HTML); });
-    g_web.on("/api/state", HTTP_GET, handleState);
-    g_web.on("/api/theme", HTTP_POST, handleTheme);
-    g_web.on("/api/page", HTTP_POST, handlePage);
-    g_web.on("/api/config", HTTP_POST, handleConfigPost);
-    g_web.on("/api/action", HTTP_POST, handleAction);
+    if (!g_routesRegistered) {
+        g_web.on("/", HTTP_GET, []() { g_web.send_P(200, "text/html; charset=utf-8", WEB_UI_HTML); });
+        g_web.on("/api/state", HTTP_GET, handleState);
+        g_web.on("/api/theme", HTTP_POST, handleTheme);
+        g_web.on("/api/page", HTTP_POST, handlePage);
+        g_web.on("/api/config", HTTP_POST, handleConfigPost);
+        g_web.on("/api/action", HTTP_POST, handleAction);
+        g_routesRegistered = true;
+    }
     g_web.begin();
     g_started = true;
+}
+
+void webUiStop() {
+    if (!g_started) return;
+    g_web.stop();
+    MDNS.end();
+    g_started = false;
 }
 
 void webUiSetActivePage(PageId page) { g_activePage = page; }

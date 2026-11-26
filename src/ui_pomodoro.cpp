@@ -15,7 +15,7 @@ void drawThickArc(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r,
         const float a = (i * 2.0f * 3.1415926f / STEPS) - 1.5707963f;
         const int16_t px = cx + static_cast<int16_t>(cosf(a) * r);
         const int16_t py = cy + static_cast<int16_t>(sinf(a) * r);
-        tft.fillCircle(px, py, 3, (i <= activeSteps && frac > 0.0f) ? activeCol : bgCol);
+        tft.fillCircle(px, py, SR(3), (i <= activeSteps && frac > 0.0f) ? activeCol : bgCol);
     }
 }
 
@@ -49,7 +49,6 @@ bool uiPomodoroTick(PomodoroState& st, uint32_t nowMs) {
         return true;
     }
 
-    // Switch phase automatically when timer hits 00:00
     st.onBreak = !st.onBreak;
     if (!st.onBreak) {
         st.roundCount = (st.roundCount % 4) + 1;
@@ -66,19 +65,19 @@ void uiPomodoroDraw(TFT_eSPI& tft, const PomodoroState& st, bool fetching) {
     drawTopBar(tft, "Odak Zamanlayıcı", st.longPreset ? "50/10" : "25/5",
                netGetRssi(), netIsWifiConnected(), fetching);
 
-    const int16_t cx = 88;
-    const int16_t cy = 116;
+    const int16_t cx = SX(88);
+    const int16_t cy = SY(116);
     const uint16_t ringCol = st.onBreak ? COL_ACCENT : COL_OK;
     const float frac = (st.totalSec > 0) ? (static_cast<float>(st.remainingSec) / st.totalSec) : 0.0f;
 
-    drawThickArc(tft, cx, cy, 62, frac, ringCol, COL_BORDER);
+    drawThickArc(tft, cx, cy, SR(62), frac, ringCol, COL_BORDER);
 
     char tbuf[10];
     snprintf(tbuf, sizeof(tbuf), "%02u:%02u", st.remainingSec / 60, st.remainingSec % 60);
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_TEXT, COL_BG);
-    tft.drawString(tbuf, cx, cy - 8);
+    tft.drawString(tbuf, cx, cy - SY(8));
     tft.unloadFont();
 
     char phase[20];
@@ -86,7 +85,7 @@ void uiPomodoroDraw(TFT_eSPI& tft, const PomodoroState& st, bool fetching) {
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(ringCol, COL_BG);
-    tft.drawString(phase, cx, cy + 16);
+    tft.drawString(phase, cx, cy + SY(16));
 
     drawPomoBtn(tft, RECT_POMO_TOGGLE, st.running ? "Duraklat" : "Başlat",
                 st.running ? COL_ACCENT_2 : COL_OK);

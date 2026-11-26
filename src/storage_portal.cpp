@@ -26,32 +26,32 @@ String htmlEscape(const char* src) {
 
 void drawPortalScreen(TFT_eSPI& tft, const char* apName, const char* ipStr) {
     tft.fillScreen(COL_BG);
-    tft.fillRoundRect(14, 14, SCREEN_W - 28, SCREEN_H - 28, 10, COL_SURFACE);
-    tft.drawRoundRect(14, 14, SCREEN_W - 28, SCREEN_H - 28, 10, COL_ACCENT);
+    tft.fillRoundRect(SX(14), SY(14), SCREEN_W - SX(28), SCREEN_H - SY(28), 10, COL_SURFACE);
+    tft.drawRoundRect(SX(14), SY(14), SCREEN_W - SX(28), SCREEN_H - SY(28), 10, COL_ACCENT);
 
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(TC_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString("Wi-Fi & Şehir Kurulumu", SCREEN_W / 2, 28);
+    tft.drawString("Wi-Fi & Şehir Kurulumu", SCREEN_W / 2, SY(28));
     tft.unloadFont();
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString("1. Telefon veya PC ile ağa bağlan:", 28, 66);
+    tft.drawString("1. Telefon veya PC ile ağa bağlan:", SX(28), SY(66));
 
     tft.setTextColor(COL_ACCENT_2, COL_SURFACE);
-    tft.drawString(String("   Ağ Adı: ") + apName + " (Şifresiz)", 28, 90);
+    tft.drawString(String("   Ağ Adı: ") + apName + " (Şifresiz)", SX(28), SY(90));
 
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString("2. Tarayıcı otomatik açılmazsa adres:", 28, 122);
+    tft.drawString("2. Tarayıcı otomatik açılmazsa adres:", SX(28), SY(122));
 
     tft.setTextColor(COL_OK, COL_SURFACE);
-    tft.drawString(String("   http://") + ipStr, 28, 146);
+    tft.drawString(String("   http://") + ipStr, SX(28), SY(146));
 
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString("3. Wi-Fi, şehir ve haber kategorisini", 28, 178);
-    tft.drawString("   kaydettiğinizde cihaz yeniden başlar.", 28, 198);
+    tft.drawString("3. Wi-Fi, şehir ve haber kategorisini", SX(28), SY(178));
+    tft.drawString("   kaydettiğinizde cihaz yeniden başlar.", SX(28), SY(198));
     tft.unloadFont();
 }
 
@@ -161,6 +161,17 @@ void loadConfig(DeviceConfig& cfg) {
     cfg.nightEndHour = prefs.getUChar("nightE", 7);
     cfg.buzzerPin = prefs.getUChar("buzz", DEFAULT_BUZZER_PIN);
 
+    String btName = prefs.getString("btName", DEFAULT_BT_NAME);
+    strlcpy(cfg.btName, btName.c_str(), sizeof(cfg.btName));
+    cfg.volume = prefs.getUChar("vol", 70);
+    if (cfg.volume > 100) cfg.volume = 100;
+    String spId = prefs.getString("spId", "");
+    String spSec = prefs.getString("spSec", "");
+    String spRef = prefs.getString("spRef", "");
+    strlcpy(cfg.spClientId, spId.c_str(), sizeof(cfg.spClientId));
+    strlcpy(cfg.spClientSecret, spSec.c_str(), sizeof(cfg.spClientSecret));
+    strlcpy(cfg.spRefreshToken, spRef.c_str(), sizeof(cfg.spRefreshToken));
+
     const uint8_t defH[3] = {7, 9, 18};
     const uint8_t defM[3] = {30, 0, 45};
     const bool defEn[3] = {false, false, false};
@@ -219,6 +230,11 @@ void saveConfig(const DeviceConfig& cfg) {
     prefs.putUChar("nightS", cfg.nightStartHour);
     prefs.putUChar("nightE", cfg.nightEndHour);
     prefs.putUChar("buzz", cfg.buzzerPin);
+    prefs.putString("btName", cfg.btName);
+    prefs.putUChar("vol", cfg.volume);
+    prefs.putString("spId", cfg.spClientId);
+    prefs.putString("spSec", cfg.spClientSecret);
+    prefs.putString("spRef", cfg.spRefreshToken);
 
     for (int i = 0; i < 3; ++i) {
         char kh[8], km[8], ke[8], kr[8], kl[8];

@@ -33,9 +33,10 @@ void getClockVals(struct tm& ti, bool& valid, int d[4], int& sec, int& dayKey) {
 
 void drawInfoSummaryPanel(TFT_eSPI& tft, const struct tm& ti, bool valid,
                           const DeviceConfig& cfg, const WeatherData& wx, uint16_t accentCol) {
-    const int16_t px = 200;
-    tft.fillRoundRect(px, 32, SCREEN_W - px - 10, 170, 10, COL_SURFACE);
-    tft.drawRoundRect(px, 32, SCREEN_W - px - 10, 170, 10, COL_BORDER);
+    const int16_t px = SX(200);
+    const int16_t pw = SCREEN_W - px - SX(10);
+    tft.fillRoundRect(px, SY(32), pw, SY(170), 10, COL_SURFACE);
+    tft.drawRoundRect(px, SY(32), pw, SY(170), 10, COL_BORDER);
 
     char tbuf[8];
     if (valid) snprintf(tbuf, sizeof(tbuf), "%02d:%02d", ti.tm_hour, ti.tm_min);
@@ -44,10 +45,10 @@ void drawInfoSummaryPanel(TFT_eSPI& tft, const struct tm& ti, bool valid,
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(tbuf, px + 55, 56);
+    tft.drawString(tbuf, px + pw / 2, SY(56));
     tft.unloadFont();
 
-    tft.drawFastHLine(px + 10, 76, 90, COL_BORDER);
+    tft.drawFastHLine(px + SX(10), SY(76), pw - SX(20), COL_BORDER);
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
@@ -56,33 +57,33 @@ void drawInfoSummaryPanel(TFT_eSPI& tft, const struct tm& ti, bool valid,
         snprintf(dbuf, sizeof(dbuf), "%d %s %s",
                  ti.tm_mday, TR_MONTHS_SHORT[ti.tm_mon % 12], TR_DAYS_SHORT[ti.tm_wday % 7]);
         tft.setTextColor(COL_TEXT, COL_SURFACE);
-        tft.drawString(dbuf, px + 55, 96);
+        tft.drawString(dbuf, px + pw / 2, SY(96));
     }
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(cfg.city, px + 55, 118);
+    tft.drawString(cfg.city, px + pw / 2, SY(118));
 
     if (wx.valid) {
         char wbuf[20];
         snprintf(wbuf, sizeof(wbuf), "%.0f°C", wx.tempC);
         tft.setTextColor(accentCol, COL_SURFACE);
-        tft.drawString(wbuf, px + 55, 140);
+        tft.drawString(wbuf, px + pw / 2, SY(140));
     }
 
-    tft.drawFastHLine(px + 10, 158, 90, COL_BORDER);
+    tft.drawFastHLine(px + SX(10), SY(158), pw - SX(20), COL_BORDER);
     bool hasAlarm = false;
     for (int i = 0; i < 3; ++i) {
         if (cfg.alarms[i].enabled) {
             char abuf[20];
             snprintf(abuf, sizeof(abuf), "Alarm %02u:%02u", cfg.alarms[i].hour, cfg.alarms[i].minute);
             tft.setTextColor(COL_OK, COL_SURFACE);
-            tft.drawString(abuf, px + 55, 178);
+            tft.drawString(abuf, px + pw / 2, SY(178));
             hasAlarm = true;
             break;
         }
     }
     if (!hasAlarm) {
         tft.setTextColor(COL_MUTED, COL_SURFACE);
-        tft.drawString("Alarm Kapalı", px + 55, 178);
+        tft.drawString("Alarm Kapalı", px + pw / 2, SY(178));
     }
     tft.unloadFont();
 }
@@ -90,18 +91,18 @@ void drawInfoSummaryPanel(TFT_eSPI& tft, const struct tm& ti, bool valid,
 // =========================================================================
 // 1. REALISTIC NIXIE TUBE CLOCK (IN-18)
 // =========================================================================
-struct Pt { uint8_t x; uint8_t y; }; // 0..100 normalized
+struct Pt { uint8_t x; uint8_t y; };
 const Pt NIXIE_PATHS[10][12] = {
-    {{50,4},{80,8},{90,30},{90,70},{80,92},{50,96},{20,92},{10,70},{10,30},{20,8},{50,4},{255,255}}, // 0
-    {{30,20},{54,5},{54,95},{30,95},{78,95},{255,255}}, // 1 (break handled via count)
-    {{16,24},{26,7},{52,4},{78,8},{86,24},{82,42},{16,95},{88,95},{255,255}}, // 2
-    {{18,14},{48,4},{78,12},{84,28},{72,44},{42,48},{76,54},{88,72},{78,90},{48,96},{16,86},{255,255}}, // 3
-    {{74,95},{74,5},{14,66},{88,66},{255,255}}, // 4
-    {{82,5},{24,5},{20,44},{54,42},{82,52},{86,74},{74,92},{46,96},{18,86},{255,255}}, // 5
-    {{76,12},{52,4},{24,14},{12,44},{12,76},{26,93},{54,96},{82,88},{88,66},{76,48},{48,44},{18,52}}, // 6
-    {{16,6},{86,6},{40,95},{255,255}}, // 7
-    {{50,4},{76,9},{82,24},{72,41},{24,54},{12,72},{22,91},{50,96},{78,91},{88,72},{76,54},{24,41}}, // 8
-    {{82,48},{50,54},{18,44},{14,22},{28,7},{56,4},{82,16},{88,48},{78,82},{52,96},{24,90},{255,255}} // 9
+    {{50,4},{80,8},{90,30},{90,70},{80,92},{50,96},{20,92},{10,70},{10,30},{20,8},{50,4},{255,255}},
+    {{30,20},{54,5},{54,95},{30,95},{78,95},{255,255}},
+    {{16,24},{26,7},{52,4},{78,8},{86,24},{82,42},{16,95},{88,95},{255,255}},
+    {{18,14},{48,4},{78,12},{84,28},{72,44},{42,48},{76,54},{88,72},{78,90},{48,96},{16,86},{255,255}},
+    {{74,95},{74,5},{14,66},{88,66},{255,255}},
+    {{82,5},{24,5},{20,44},{54,42},{82,52},{86,74},{74,92},{46,96},{18,86},{255,255}},
+    {{76,12},{52,4},{24,14},{12,44},{12,76},{26,93},{54,96},{82,88},{88,66},{76,48},{48,44},{18,52}},
+    {{16,6},{86,6},{40,95},{255,255}},
+    {{50,4},{76,9},{82,24},{72,41},{24,54},{12,72},{22,91},{50,96},{78,91},{88,72},{76,54},{24,41}},
+    {{82,48},{50,54},{18,44},{14,22},{28,7},{56,4},{82,16},{88,48},{78,82},{52,96},{24,90},{255,255}}
 };
 
 void drawThickLine(TFT_eSPI& tft, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
@@ -155,56 +156,50 @@ void drawNixieWire(TFT_eSPI& tft, int digit, int16_t ox, int16_t oy, int16_t w, 
 }
 
 void drawNixieTube(TFT_eSPI& tft, int16_t x, int digit) {
-    constexpr int16_t tw = 60, th = 128, ty = 30;
-    // Exhaust pip & glass envelope
-    tft.fillRoundRect(x + tw / 2 - 4, ty - 4, 8, 8, 3, 0x10A3);
-    tft.drawRoundRect(x + tw / 2 - 4, ty - 4, 8, 8, 3, 0x5ACB);
-    tft.fillRoundRect(x, ty, tw, th, 20, 0x0821);
-    tft.drawRoundRect(x, ty, tw, th, 20, 0x5AEB);
-    tft.fillRoundRect(x + 3, ty + 4, tw - 6, th - 16, 17, 0x1041);
+    const int16_t tw = SX(60), th = SY(128), ty = SY(30);
+    tft.fillRoundRect(x + tw / 2 - SX(4), ty - SY(4), SX(8), SY(8), 3, 0x10A3);
+    tft.drawRoundRect(x + tw / 2 - SX(4), ty - SY(4), SX(8), SY(8), 3, 0x5ACB);
+    tft.fillRoundRect(x, ty, tw, th, SR(20), 0x0821);
+    tft.drawRoundRect(x, ty, tw, th, SR(20), 0x5AEB);
+    tft.fillRoundRect(x + SX(3), ty + SY(4), tw - SX(6), th - SY(16), SR(17), 0x1041);
 
-    // Mica insulator rings & support rods
-    tft.fillRect(x + 10, ty + 16, tw - 20, 3, 0x3944);
-    tft.fillRect(x + 10, ty + th - 22, tw - 20, 3, 0x3944);
-    tft.drawFastVLine(x + 12, ty + 18, th - 38, 0x4207);
-    tft.drawFastVLine(x + tw - 12, ty + 18, th - 38, 0x4207);
+    tft.fillRect(x + SX(10), ty + SY(16), tw - SX(20), 3, 0x3944);
+    tft.fillRect(x + SX(10), ty + th - SY(22), tw - SX(20), 3, 0x3944);
+    tft.drawFastVLine(x + SX(12), ty + SY(18), th - SY(38), 0x4207);
+    tft.drawFastVLine(x + tw - SX(12), ty + SY(18), th - SY(38), 0x4207);
 
-    // Diamond anode wire mesh + unlit cathode silhouette
-    for (int16_t s = -32; s < 84; s += 10) {
-        int16_t x1 = max<int16_t>(x + 6, x + 6 + s);
-        int16_t y1 = ty + 20 + max<int16_t>(0, -s);
-        int16_t x2 = min<int16_t>(x + tw - 6, x + 6 + s + 64);
-        int16_t y2 = ty + 20 + min<int16_t>(84, 64 - s);
+    for (int16_t s = -SX(32); s < SX(84); s += SX(10)) {
+        int16_t x1 = max<int16_t>(x + SX(6), x + SX(6) + s);
+        int16_t y1 = ty + SY(20) + max<int16_t>(0, -s);
+        int16_t x2 = min<int16_t>(x + tw - SX(6), x + SX(6) + s + SX(64));
+        int16_t y2 = ty + SY(20) + min<int16_t>(SY(84), SY(64) - s);
         if (x1 < x2 && y1 < y2) tft.drawLine(x1, y1, x2, y2, 0x20C2);
     }
-    drawNixieWire(tft, 8, x + 13, ty + 28, 34, 68, 0, 0x2923);
+    drawNixieWire(tft, 8, x + SX(13), ty + SY(28), SX(34), SY(68), 0, 0x2923);
 
-    // 3-layer glowing cathode wire
-    drawNixieWire(tft, digit, x + 13, ty + 28, 34, 68, 3, 0x91C0);
-    drawNixieWire(tft, digit, x + 13, ty + 28, 34, 68, 1, 0xFC42);
-    drawNixieWire(tft, digit, x + 13, ty + 28, 34, 68, 0, 0xFED3);
+    drawNixieWire(tft, digit, x + SX(13), ty + SY(28), SX(34), SY(68), SR(3), 0x91C0);
+    drawNixieWire(tft, digit, x + SX(13), ty + SY(28), SX(34), SY(68), SR(1), 0xFC42);
+    drawNixieWire(tft, digit, x + SX(13), ty + SY(28), SX(34), SY(68), 0, 0xFED3);
 
-    // Glass specular highlights
-    tft.drawFastVLine(x + 6, ty + 20, 36, 0x8430);
-    tft.drawFastVLine(x + tw - 6, ty + 24, th - 48, 0x4228);
+    tft.drawFastVLine(x + SX(6), ty + SY(20), SY(36), 0x8430);
+    tft.drawFastVLine(x + tw - SX(6), ty + SY(24), th - SY(48), 0x4228);
 
-    // Brass collar + bakelite base + metal pins
-    tft.fillRoundRect(x + 3, ty + th - 14, tw - 6, 12, 4, 0x59E3);
-    tft.drawRoundRect(x + 3, ty + th - 14, tw - 6, 12, 4, 0x9B46);
-    tft.fillRect(x + 6, ty + th - 3, tw - 12, 7, 0x18C2);
-    for (int16_t px = x + 12; px < x + tw - 10; px += 9) {
-        tft.drawFastVLine(px, ty + th + 4, 5, 0xAD55);
+    tft.fillRoundRect(x + SX(3), ty + th - SY(14), tw - SX(6), SY(12), 4, 0x59E3);
+    tft.drawRoundRect(x + SX(3), ty + th - SY(14), tw - SX(6), SY(12), 4, 0x9B46);
+    tft.fillRect(x + SX(6), ty + th - SY(3), tw - SX(12), SY(7), 0x18C2);
+    for (int16_t px = x + SX(12); px < x + tw - SX(10); px += SX(9)) {
+        tft.drawFastVLine(px, ty + th + SY(4), SY(5), 0xAD55);
     }
 }
 
 void drawNixieColon(TFT_eSPI& tft, bool on) {
-    for (int16_t cy : {76, 110}) {
-        tft.fillRoundRect(154, cy - 8, 12, 16, 5, 0x1041);
-        tft.drawRoundRect(154, cy - 8, 12, 16, 5, 0x528A);
+    for (int16_t cy : {SY(76), SY(110)}) {
+        tft.fillRoundRect(SX(154), cy - SY(8), SX(12), SY(16), 5, 0x1041);
+        tft.drawRoundRect(SX(154), cy - SY(8), SX(12), SY(16), 5, 0x528A);
         if (on) {
-            tft.fillCircle(160, cy, 4, 0x91C0);
-            tft.fillCircle(160, cy, 2, 0xFC83);
-            tft.drawPixel(160, cy, 0xFED3);
+            tft.fillCircle(SX(160), cy, SR(4), 0x91C0);
+            tft.fillCircle(SX(160), cy, SR(2), 0xFC83);
+            tft.drawPixel(SX(160), cy, 0xFED3);
         }
     }
 }
@@ -214,13 +209,13 @@ void tickNixie(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     struct tm ti{}; bool valid = false; int d[4], sec = 0, dayKey = 0;
     getClockVals(ti, valid, d, sec, dayKey);
     const bool wifiOk = netIsWifiConnected();
-    constexpr int16_t xs[4] = {16, 86, 174, 244};
+    const int16_t xs[4] = {SX(16), SX(86), SX(174), SX(244)};
 
     if (forceFull) {
         tft.fillScreen(0x0821);
         drawTopBar(tft, "Nixie Tüp Saat", "Tema", netGetRssi(), wifiOk, fetching);
-        tft.fillRoundRect(10, 152, SCREEN_W - 20, 22, 5, 0x28C2);
-        tft.drawRoundRect(10, 152, SCREEN_W - 20, 22, 5, 0x4983);
+        tft.fillRoundRect(SX(10), SY(152), SCREEN_W - SX(20), SY(22), 5, 0x28C2);
+        tft.drawRoundRect(SX(10), SY(152), SCREEN_W - SX(20), SY(22), 5, 0x4983);
         for (int i = 0; i < 4; ++i) {
             drawNixieTube(tft, xs[i], d[i]);
             g_prevDigits[i] = d[i];
@@ -243,8 +238,8 @@ void tickNixie(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     }
     if (dayKey != g_prevDay || wx.updatedAtMs != g_prevWxMs) {
         g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;
-        tft.fillRoundRect(14, 179, SCREEN_W - 28, 24, 6, 0x1061);
-        tft.drawRoundRect(14, 179, SCREEN_W - 28, 24, 6, 0x4163);
+        tft.fillRoundRect(SX(14), SY(179), SCREEN_W - SX(28), SY(24), 6, 0x1061);
+        tft.drawRoundRect(SX(14), SY(179), SCREEN_W - SX(28), SY(24), 6, 0x4163);
         tft.loadFont(SegoeUI14TR);
         if (valid) {
             char dbuf[40];
@@ -252,14 +247,14 @@ void tickNixie(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
                      ti.tm_mday, TR_MONTHS_SHORT[ti.tm_mon % 12], TR_DAYS_LONG[ti.tm_wday % 7]);
             tft.setTextDatum(ML_DATUM);
             tft.setTextColor(0xEDE6, 0x1061);
-            tft.drawString(dbuf, 24, 191);
+            tft.drawString(dbuf, SX(24), SY(191));
         }
         if (wx.valid) {
             char wbuf[40];
             snprintf(wbuf, sizeof(wbuf), "%s %.0f°C", cfg.city, wx.tempC);
             tft.setTextDatum(MR_DATUM);
             tft.setTextColor(0xFC85, 0x1061);
-            tft.drawString(wbuf, SCREEN_W - 24, 191);
+            tft.drawString(wbuf, SCREEN_W - SX(24), SY(191));
         }
         tft.unloadFont();
     }
@@ -282,7 +277,6 @@ void draw7SegDigit(TFT_eSPI& tft, int16_t x, int16_t y, int16_t w, int16_t h, in
     const uint8_t m = SEG7_MASK[digit % 10];
     const int16_t half = h / 2;
     auto segCol = [&](int bit) { return (m & (1 << bit)) ? onCol : offCol; };
-    // A (top), B (TR), C (BR), D (bot), E (BL), F (TL), G (mid)
     tft.fillRoundRect(x + t, y, w - 2 * t, t, 2, segCol(0));
     tft.fillRoundRect(x + w - t, y + t, t, half - t - 1, 2, segCol(1));
     tft.fillRoundRect(x + w - t, y + half + 1, t, half - t - 1, 2, segCol(2));
@@ -297,27 +291,27 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     struct tm ti{}; bool valid = false; int d[4], sec = 0, dayKey = 0;
     getClockVals(ti, valid, d, sec, dayKey);
     const bool wifiOk = netIsWifiConnected();
-    constexpr int16_t xs[4] = {22, 74, 138, 190};
+    const int16_t xs[4] = {SX(22), SX(74), SX(138), SX(190)};
     constexpr uint16_t dimCol = 0x1105;
 
     if (forceFull) {
         tft.fillScreen(0x0042);
         drawTopBar(tft, "Dijital 7-Segment", "Tema", netGetRssi(), wifiOk, fetching);
-        tft.fillRoundRect(10, 32, SCREEN_W - 20, 130, 10, 0x0863);
-        tft.drawRoundRect(10, 32, SCREEN_W - 20, 130, 10, 0x1967);
+        tft.fillRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, 0x0863);
+        tft.drawRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, 0x1967);
         tft.loadFont(SegoeUI14TR);
         tft.setTextDatum(MC_DATUM);
         tft.setTextColor(COL_MUTED, 0x0863);
-        tft.drawString("SN", 274, 62);
+        tft.drawString("SN", SX(274), SY(62));
         tft.unloadFont();
         for (int i = 0; i < 4; ++i) {
-            draw7SegDigit(tft, xs[i], 48, 42, 86, 7, d[i], COL_CYAN, dimCol);
+            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], COL_CYAN, dimCol);
             g_prevDigits[i] = d[i];
         }
-        draw7SegDigit(tft, 248, 86, 24, 48, 4, sec / 10, COL_ACCENT, dimCol);
-        draw7SegDigit(tft, 278, 86, 24, 48, 4, sec % 10, COL_ACCENT, dimCol);
-        tft.fillRect(124, 72, 6, 7, COL_CYAN);
-        tft.fillRect(124, 102, 6, 7, COL_CYAN);
+        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, COL_ACCENT, dimCol);
+        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, COL_ACCENT, dimCol);
+        tft.fillRect(SX(124), SY(72), SX(6), SY(7), COL_CYAN);
+        tft.fillRect(SX(124), SY(102), SX(6), SY(7), COL_CYAN);
         drawBottomNav(tft, 0);
         g_prevSec = sec;
         g_prevDay = -999;
@@ -326,23 +320,23 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     for (int i = 0; i < 4; ++i) {
         if (d[i] != g_prevDigits[i]) {
             g_prevDigits[i] = d[i];
-            draw7SegDigit(tft, xs[i], 48, 42, 86, 7, d[i], COL_CYAN, dimCol);
+            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], COL_CYAN, dimCol);
         }
     }
     if (sec != g_prevSec) {
         g_prevSec = sec;
-        draw7SegDigit(tft, 248, 86, 24, 48, 4, sec / 10, COL_ACCENT, dimCol);
-        draw7SegDigit(tft, 278, 86, 24, 48, 4, sec % 10, COL_ACCENT, dimCol);
+        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, COL_ACCENT, dimCol);
+        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, COL_ACCENT, dimCol);
         const uint16_t cc = (sec % 2 == 0) ? COL_CYAN : dimCol;
-        tft.fillRect(124, 72, 6, 7, cc);
-        tft.fillRect(124, 102, 6, 7, cc);
+        tft.fillRect(SX(124), SY(72), SX(6), SY(7), cc);
+        tft.fillRect(SX(124), SY(102), SX(6), SY(7), cc);
     }
     if (dayKey != g_prevDay || wx.updatedAtMs != g_prevWxMs) {
         g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;
-        tft.fillRoundRect(10, 170, 184, 30, 7, COL_SURFACE);
-        tft.drawRoundRect(10, 170, 184, 30, 7, COL_BORDER);
-        tft.fillRoundRect(200, 170, SCREEN_W - 210, 30, 7, COL_SURFACE);
-        tft.drawRoundRect(200, 170, SCREEN_W - 210, 30, 7, COL_BORDER);
+        tft.fillRoundRect(SX(10), SY(170), SX(184), SY(30), 7, COL_SURFACE);
+        tft.drawRoundRect(SX(10), SY(170), SX(184), SY(30), 7, COL_BORDER);
+        tft.fillRoundRect(SX(200), SY(170), SCREEN_W - SX(210), SY(30), 7, COL_SURFACE);
+        tft.drawRoundRect(SX(200), SY(170), SCREEN_W - SX(210), SY(30), 7, COL_BORDER);
         tft.loadFont(SegoeUI14TR);
         if (valid) {
             char dbuf[32];
@@ -350,14 +344,14 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
                      ti.tm_mday, TR_MONTHS_SHORT[ti.tm_mon % 12], TR_DAYS_LONG[ti.tm_wday % 7]);
             tft.setTextDatum(ML_DATUM);
             tft.setTextColor(COL_TEXT, COL_SURFACE);
-            tft.drawString(dbuf, 18, 185);
+            tft.drawString(dbuf, SX(18), SY(185));
         }
         if (wx.valid) {
             char wbuf[48];
             snprintf(wbuf, sizeof(wbuf), "%.0f° %s", wx.tempC, cfg.city);
             tft.setTextDatum(MC_DATUM);
             tft.setTextColor(COL_ACCENT_2, COL_SURFACE);
-            tft.drawString(wbuf, 255, 185);
+            tft.drawString(wbuf, SX(255), SY(185));
         }
         tft.unloadFont();
     }
@@ -370,122 +364,126 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
 // =========================================================================
 // 3 & 4. ANALOG ROLEX (SUBMARINER) & PATEK PHILIPPE (NAUTILUS)
 // =========================================================================
-void renderWatchHands(TFT_eSprite& spr, int16_t cx, int16_t cy, int h, int m, int s,
+template <typename Target>
+void renderWatchHands(Target& dst, int16_t cx, int16_t cy, int h, int m, int s,
                       uint16_t hrCol, uint16_t minCol, uint16_t secCol, bool mercedes) {
     const float ha = ((h % 12) + m / 60.0f) * 0.523599f - 1.570796f;
-    const int16_t hx = cx + static_cast<int16_t>(cosf(ha) * 35);
-    const int16_t hy = cy + static_cast<int16_t>(sinf(ha) * 35);
-    spr.drawWideLine(cx, cy, hx, hy, 5, hrCol);
+    const int16_t hx = cx + static_cast<int16_t>(cosf(ha) * SR(35));
+    const int16_t hy = cy + static_cast<int16_t>(sinf(ha) * SR(35));
+    dst.drawWideLine(cx, cy, hx, hy, SR(5), hrCol);
     if (mercedes) {
-        const int16_t mx = cx + static_cast<int16_t>(cosf(ha) * 23);
-        const int16_t my = cy + static_cast<int16_t>(sinf(ha) * 23);
-        spr.fillCircle(mx, my, 6, hrCol);
-        spr.fillCircle(mx, my, 4, 0xDFBD);
+        const int16_t mx = cx + static_cast<int16_t>(cosf(ha) * SR(23));
+        const int16_t my = cy + static_cast<int16_t>(sinf(ha) * SR(23));
+        dst.fillCircle(mx, my, SR(6), hrCol);
+        dst.fillCircle(mx, my, SR(4), 0xDFBD);
     }
 
     const float ma = m * 0.10472f - 1.570796f;
-    const int16_t mx2 = cx + static_cast<int16_t>(cosf(ma) * 52);
-    const int16_t my2 = cy + static_cast<int16_t>(sinf(ma) * 52);
-    spr.drawWideLine(cx, cy, mx2, my2, 3, minCol);
+    const int16_t mx2 = cx + static_cast<int16_t>(cosf(ma) * SR(52));
+    const int16_t my2 = cy + static_cast<int16_t>(sinf(ma) * SR(52));
+    dst.drawWideLine(cx, cy, mx2, my2, SR(3), minCol);
 
     const float sa = s * 0.10472f - 1.570796f;
-    const int16_t sx = cx + static_cast<int16_t>(cosf(sa) * 57);
-    const int16_t sy = cy + static_cast<int16_t>(sinf(sa) * 57);
-    const int16_t tx = cx - static_cast<int16_t>(cosf(sa) * 14);
-    const int16_t ty = cy - static_cast<int16_t>(sinf(sa) * 14);
-    spr.drawWideLine(tx, ty, sx, sy, 2, secCol);
-    spr.fillCircle(cx, cy, 4, secCol);
+    const int16_t sx = cx + static_cast<int16_t>(cosf(sa) * SR(57));
+    const int16_t sy = cy + static_cast<int16_t>(sinf(sa) * SR(57));
+    const int16_t tx = cx - static_cast<int16_t>(cosf(sa) * SR(14));
+    const int16_t ty = cy - static_cast<int16_t>(sinf(sa) * SR(14));
+    dst.drawWideLine(tx, ty, sx, sy, 2, secCol);
+    dst.fillCircle(cx, cy, SR(4), secCol);
+}
+
+template <typename Target>
+void drawDialContents(Target& dst, int16_t cx, int16_t cy, bool isPatek, const struct tm& ti, bool valid) {
+    const int16_t r = SR(74);
+    if (!isPatek) {
+        dst.fillCircle(cx, cy, r + SR(6), 0x9CF3);
+        dst.fillCircle(cx, cy, r, 0x09C4);
+        dst.fillTriangle(cx, cy - r + SR(10), cx - SR(6), cy - r + 2, cx + SR(6), cy - r + 2, COL_GOLD);
+        const int16_t dr = r - SR(12);
+        dst.fillCircle(cx, cy, dr, 0x0861);
+        dst.drawCircle(cx, cy, dr, 0xBCEB);
+
+        for (int i = 0; i < 12; ++i) {
+            const float a = i * 0.523599f - 1.570796f;
+            const int16_t mx = cx + static_cast<int16_t>(cosf(a) * (dr - SR(9)));
+            const int16_t my = cy + static_cast<int16_t>(sinf(a) * (dr - SR(9)));
+            if (i == 0) {
+                dst.fillTriangle(mx, my + SR(5), mx - SR(5), my - SR(4), mx + SR(5), my - SR(4), 0xE7FB);
+            } else if (i == 3) {
+                dst.fillRoundRect(mx - SR(8), my - SR(6), SR(16), SR(12), 2, 0xF7BE);
+                dst.setTextDatum(MC_DATUM);
+                dst.setTextColor(TFT_BLACK, 0xF7BE);
+                char db[4]; snprintf(db, sizeof(db), "%d", valid ? ti.tm_mday : 25);
+                dst.drawString(db, mx, my, 1);
+            } else if (i == 6 || i == 9) {
+                dst.fillRect(mx - SR(3), my - SR(3), SR(6), SR(6), 0xE7FB);
+            } else {
+                dst.fillCircle(mx, my, SR(3), 0xE7FB);
+            }
+        }
+        dst.setTextDatum(MC_DATUM);
+        dst.setTextColor(COL_GOLD, 0x0861);
+        dst.drawString("ROLEX", cx, cy - SR(26), 2);
+        dst.setTextColor(0x9D33, 0x0861);
+        dst.drawString("OYSTER", cx, cy + SR(24), 1);
+
+        renderWatchHands(dst, cx, cy, valid ? ti.tm_hour : 16, valid ? ti.tm_min : 30,
+                         valid ? ti.tm_sec : 0, 0xEFFD, 0xF7DF, COL_ERR, true);
+    } else {
+        dst.fillRoundRect(cx - r - SR(7), cy - SR(16), (r + SR(7)) * 2, SR(32), 7, 0x8C73);
+        dst.fillRoundRect(cx - r, cy - r, r * 2, r * 2, SR(30), 0xAD57);
+        const int16_t dr = r - SR(11);
+        dst.fillRoundRect(cx - dr, cy - dr, dr * 2, dr * 2, SR(24), 0x1107);
+        for (int16_t sy = cy - dr + SR(10); sy <= cy + dr - SR(8); sy += SR(8)) {
+            dst.drawFastHLine(cx - dr + SR(10), sy, (dr - SR(10)) * 2, 0x196A);
+        }
+        for (int i = 0; i < 12; ++i) {
+            const float a = i * 0.523599f - 1.570796f;
+            const int16_t x1 = cx + static_cast<int16_t>(cosf(a) * (dr - SR(13)));
+            const int16_t y1 = cy + static_cast<int16_t>(sinf(a) * (dr - SR(13)));
+            const int16_t x2 = cx + static_cast<int16_t>(cosf(a) * (dr - SR(5)));
+            const int16_t y2 = cy + static_cast<int16_t>(sinf(a) * (dr - SR(5)));
+            if (i == 3) {
+                dst.fillRect(x1 - SR(5), y1 - SR(5), SR(14), SR(11), 0xF7BE);
+                dst.setTextDatum(MC_DATUM);
+                dst.setTextColor(TFT_BLACK, 0xF7BE);
+                char db[4]; snprintf(db, sizeof(db), "%d", valid ? ti.tm_mday : 25);
+                dst.drawString(db, x1 + SR(2), y1, 1);
+            } else {
+                dst.drawWideLine(x1, y1, x2, y2, (i % 3 == 0) ? 3 : 2, 0xEF7D);
+            }
+        }
+        dst.fillCircle(cx, cy + SR(32), SR(14), 0x08A4);
+        dst.drawCircle(cx, cy + SR(32), SR(14), 0x9D16);
+        dst.fillCircle(cx, cy + SR(30), SR(6), COL_GOLD);
+        dst.fillCircle(cx + SR(3), cy + SR(28), SR(5), 0x08A4);
+
+        dst.setTextDatum(MC_DATUM);
+        dst.setTextColor(0xE73C, 0x1107);
+        dst.drawString("PATEK PHILIPPE", cx, cy - SR(26), 1);
+        dst.setTextColor(0x8D37, 0x1107);
+        dst.drawString("GENEVE", cx, cy - SR(16), 1);
+
+        renderWatchHands(dst, cx, cy, valid ? ti.tm_hour : 16, valid ? ti.tm_min : 30,
+                         valid ? ti.tm_sec : 0, 0xEF7D, 0xF7DF, COL_ACCENT, false);
+    }
 }
 
 void drawAnalogDial(TFT_eSPI& tft, bool isPatek, const struct tm& ti, bool valid) {
-    constexpr int16_t S = 172;
+    const int16_t S = SR(168);
+    const int16_t ox = SX(16);
+    const int16_t oy = SY(32);
+
     TFT_eSprite spr(&tft);
     spr.setColorDepth(16);
-    if (!spr.createSprite(S, S)) return;
-
-    spr.fillSprite(COL_BG);
-    const int16_t cx = S / 2;
-    const int16_t cy = S / 2;
-    const int16_t r = 76;
-
-    if (!isPatek) {
-        // Rolex Submariner emerald-black bezel
-        spr.fillCircle(cx, cy, r + 6, 0x9CF3);
-        spr.fillCircle(cx, cy, r, 0x09C4);
-        spr.fillTriangle(cx, cy - r + 10, cx - 6, cy - r + 2, cx + 6, cy - r + 2, COL_GOLD);
-        const int16_t dr = r - 12;
-        spr.fillCircle(cx, cy, dr, 0x0861);
-        spr.drawCircle(cx, cy, dr, 0xBCEB);
-
-        for (int i = 0; i < 12; ++i) {
-            const float a = i * 0.523599f - 1.570796f;
-            const int16_t mx = cx + static_cast<int16_t>(cosf(a) * (dr - 9));
-            const int16_t my = cy + static_cast<int16_t>(sinf(a) * (dr - 9));
-            if (i == 0) {
-                spr.fillTriangle(mx, my + 5, mx - 5, my - 4, mx + 5, my - 4, 0xE7FB);
-            } else if (i == 3) {
-                spr.fillRoundRect(mx - 8, my - 6, 16, 12, 2, 0xF7BE);
-                spr.setTextDatum(MC_DATUM);
-                spr.setTextColor(TFT_BLACK, 0xF7BE);
-                char db[4]; snprintf(db, sizeof(db), "%d", valid ? ti.tm_mday : 25);
-                spr.drawString(db, mx, my, 1);
-            } else if (i == 6 || i == 9) {
-                spr.fillRect(mx - 3, my - 3, 6, 6, 0xE7FB);
-            } else {
-                spr.fillCircle(mx, my, 3, 0xE7FB);
-            }
-        }
-        spr.setTextDatum(MC_DATUM);
-        spr.setTextColor(COL_GOLD, 0x0861);
-        spr.drawString("ROLEX", cx, cy - 26, 2);
-        spr.setTextColor(0x9D33, 0x0861);
-        spr.drawString("OYSTER", cx, cy + 24, 1);
-
-        renderWatchHands(spr, cx, cy, valid ? ti.tm_hour : 16, valid ? ti.tm_min : 30,
-                         valid ? ti.tm_sec : 0, 0xEFFD, 0xF7DF, COL_ERR, true);
+    if (spr.createSprite(S, S)) {
+        spr.fillSprite(COL_BG);
+        drawDialContents(spr, S / 2, S / 2, isPatek, ti, valid);
+        spr.pushSprite(ox, oy);
+        spr.deleteSprite();
     } else {
-        // Patek Philippe Nautilus
-        spr.fillRoundRect(cx - r - 7, cy - 16, (r + 7) * 2, 32, 7, 0x8C73);
-        spr.fillRoundRect(cx - r, cy - r, r * 2, r * 2, 30, 0xAD57);
-        const int16_t dr = r - 11;
-        spr.fillRoundRect(cx - dr, cy - dr, dr * 2, dr * 2, 24, 0x1107);
-        for (int16_t sy = cy - dr + 10; sy <= cy + dr - 8; sy += 8) {
-            spr.drawFastHLine(cx - dr + 10, sy, (dr - 10) * 2, 0x196A);
-        }
-        for (int i = 0; i < 12; ++i) {
-            const float a = i * 0.523599f - 1.570796f;
-            const int16_t x1 = cx + static_cast<int16_t>(cosf(a) * (dr - 13));
-            const int16_t y1 = cy + static_cast<int16_t>(sinf(a) * (dr - 13));
-            const int16_t x2 = cx + static_cast<int16_t>(cosf(a) * (dr - 5));
-            const int16_t y2 = cy + static_cast<int16_t>(sinf(a) * (dr - 5));
-            if (i == 3) {
-                spr.fillRect(x1 - 5, y1 - 5, 14, 11, 0xF7BE);
-                spr.setTextDatum(MC_DATUM);
-                spr.setTextColor(TFT_BLACK, 0xF7BE);
-                char db[4]; snprintf(db, sizeof(db), "%d", valid ? ti.tm_mday : 25);
-                spr.drawString(db, x1 + 2, y1, 1);
-            } else {
-                spr.drawWideLine(x1, y1, x2, y2, (i % 3 == 0) ? 3 : 2, 0xEF7D);
-            }
-        }
-        // Moonphase subdial
-        spr.fillCircle(cx, cy + 32, 14, 0x08A4);
-        spr.drawCircle(cx, cy + 32, 14, 0x9D16);
-        spr.fillCircle(cx, cy + 30, 6, COL_GOLD);
-        spr.fillCircle(cx + 3, cy + 28, 5, 0x08A4);
-
-        spr.setTextDatum(MC_DATUM);
-        spr.setTextColor(0xE73C, 0x1107);
-        spr.drawString("PATEK PHILIPPE", cx, cy - 26, 1);
-        spr.setTextColor(0x8D37, 0x1107);
-        spr.drawString("GENEVE", cx, cy - 16, 1);
-
-        renderWatchHands(spr, cx, cy, valid ? ti.tm_hour : 16, valid ? ti.tm_min : 30,
-                         valid ? ti.tm_sec : 0, 0xEF7D, 0xF7DF, COL_ACCENT, false);
+        drawDialContents(tft, ox + S / 2, oy + S / 2, isPatek, ti, valid);
     }
-
-    spr.pushSprite(14, 30);
-    spr.deleteSprite();
 }
 
 void tickAnalog(TFT_eSPI& tft, bool isPatek, const DeviceConfig& cfg, const WeatherData& wx,
@@ -526,7 +524,7 @@ void tickAnalog(TFT_eSPI& tft, bool isPatek, const DeviceConfig& cfg, const Weat
 // =========================================================================
 // 5. MARIO THEME CLOCK (16x16 NES SPRITE + MINUTE JUMP-HIT ANIMATION)
 // =========================================================================
-constexpr uint16_t SKY_COL = 0x5CB3; // #5C94FC NES sky blue
+constexpr uint16_t SKY_COL = 0x5CB3;
 
 const char* const MARIO_STAND[16] PROGMEM = {
     "....RRRRR.......",
@@ -567,62 +565,63 @@ const char* const MARIO_JUMP[16] PROGMEM = {
 };
 
 const uint8_t PIX_5X7[10][7] PROGMEM = {
-    {0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110}, // 0
-    {0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110}, // 1
-    {0b01110,0b10001,0b00001,0b00110,0b01000,0b10000,0b11111}, // 2
-    {0b11110,0b00001,0b00001,0b01110,0b00001,0b00001,0b11110}, // 3
-    {0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010}, // 4
-    {0b11111,0b10000,0b11110,0b00001,0b00001,0b10001,0b01110}, // 5
-    {0b01110,0b10000,0b10000,0b11110,0b10001,0b10001,0b01110}, // 6
-    {0b11111,0b00001,0b00010,0b00100,0b01000,0b01000,0b01000}, // 7
-    {0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110}, // 8
-    {0b01110,0b10001,0b10001,0b01111,0b00001,0b00001,0b01110}, // 9
+    {0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110},
+    {0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110},
+    {0b01110,0b10001,0b00001,0b00110,0b01000,0b10000,0b11111},
+    {0b11110,0b00001,0b00001,0b01110,0b00001,0b00001,0b11110},
+    {0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010},
+    {0b11111,0b10000,0b11110,0b00001,0b00001,0b10001,0b01110},
+    {0b01110,0b10000,0b10000,0b11110,0b10001,0b10001,0b01110},
+    {0b11111,0b00001,0b00010,0b00100,0b01000,0b01000,0b01000},
+    {0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110},
+    {0b01110,0b10001,0b10001,0b01111,0b00001,0b00001,0b01110},
 };
 
 uint16_t marioPalColor(char c) {
-    if (c == 'R') return 0xE103; // Red
-    if (c == 'B') return 0x81E2; // Brown
-    if (c == 'S') return 0xFDF0; // Peach
-    if (c == 'K') return 0x1082; // Dark
-    if (c == 'O') return 0x22BC; // Overalls blue
-    if (c == 'Y') return 0xFE65; // Gold button
+    if (c == 'R') return 0xE103;
+    if (c == 'B') return 0x81E2;
+    if (c == 'S') return 0xFDF0;
+    if (c == 'K') return 0x1082;
+    if (c == 'O') return 0x22BC;
+    if (c == 'Y') return 0xFE65;
     return 0;
 }
 
 template <typename Target>
 void drawMarioSprite(Target& dst, const char* const grid[16], int16_t x, int16_t y) {
+    constexpr int16_t sc = SR(2);
     for (int r = 0; r < 16; ++r) {
         const char* row = grid[r];
         for (int c = 0; c < 16; ++c) {
             const uint16_t col = marioPalColor(row[c]);
-            if (col != 0) dst.fillRect(x + c * 2, y + r * 2, 2, 2, col);
+            if (col != 0) dst.fillRect(x + c * sc, y + r * sc, sc, sc, col);
         }
     }
 }
 
 template <typename Target>
 void drawSmbBlock(Target& dst, int16_t x, int16_t y, int digit) {
-    constexpr int16_t sz = 42;
+    const int16_t sz = SR(42);
     dst.fillRect(x, y, sz, sz, 0x1881);
     dst.fillRect(x + 2, y + 2, sz - 4, sz - 4, 0xF543);
     dst.fillRect(x + 2, y + 2, sz - 4, 2, 0xFF11);
     dst.fillRect(x + 2, y + 2, 2, sz - 4, 0xFF11);
     dst.fillRect(x + 3, y + sz - 4, sz - 5, 2, 0xA2C1);
     dst.fillRect(x + sz - 4, y + 3, 2, sz - 5, 0xA2C1);
-    // 4 corner rivets
     dst.fillRect(x + 6, y + 6, 3, 3, 0x81E1);
     dst.fillRect(x + sz - 9, y + 6, 3, 3, 0x81E1);
     dst.fillRect(x + 6, y + sz - 9, 3, 3, 0x81E1);
     dst.fillRect(x + sz - 9, y + sz - 9, 3, 3, 0x81E1);
 
-    const int16_t ox = x + (sz - 15) / 2;
-    const int16_t oy = y + (sz - 21) / 2;
+    const int16_t ps = SR(3);
+    const int16_t ox = x + (sz - 5 * ps) / 2;
+    const int16_t oy = y + (sz - 7 * ps) / 2;
     for (int r = 0; r < 7; ++r) {
         uint8_t bits = pgm_read_byte(&PIX_5X7[digit % 10][r]);
         for (int c = 0; c < 5; ++c) {
             if (bits & (1 << (4 - c))) {
-                dst.fillRect(ox + c * 3 + 2, oy + r * 3 + 2, 3, 3, 0x4900);
-                dst.fillRect(ox + c * 3, oy + r * 3, 3, 3, 0xFFFC);
+                dst.fillRect(ox + c * ps + 2, oy + r * ps + 2, ps, ps, 0x4900);
+                dst.fillRect(ox + c * ps, oy + r * ps, ps, ps, 0xFFFC);
             }
         }
     }
@@ -630,39 +629,36 @@ void drawSmbBlock(Target& dst, int16_t x, int16_t y, int digit) {
 
 void drawMarioStaticBg(TFT_eSPI& tft, const struct tm& ti, bool valid,
                        const DeviceConfig& cfg, const WeatherData& wx) {
-    tft.fillRect(0, TOP_BAR_H + 1, SCREEN_W, NAV_BAR_Y - TOP_BAR_H - 4, SKY_COL);
-    // Pixel clouds clear of HUD
-    for (int16_t cx : {46, 274}) {
-        int16_t cy = (cx < 100) ? 124 : 46;
-        tft.fillRoundRect(cx - 22, cy - 5, 44, 12, 5, TFT_WHITE);
-        tft.fillCircle(cx, cy - 4, 10, TFT_WHITE);
+    tft.fillRect(0, TOP_BAR_H + 1, SCREEN_W, NAV_BAR_Y - TOP_BAR_H - SY(4), SKY_COL);
+    for (int16_t cx : {SX(46), SX(274)}) {
+        int16_t cy = (cx < SX(100)) ? SY(124) : SY(46);
+        tft.fillRoundRect(cx - SX(22), cy - SY(5), SX(44), SY(12), 5, TFT_WHITE);
+        tft.fillCircle(cx, cy - SY(4), SR(10), TFT_WHITE);
     }
-    // Spotted hill on left
-    tft.fillCircle(38, 176, 42, 0x1D46);
-    tft.fillCircle(26, 156, 4, 0x0B83);
-    tft.fillCircle(50, 162, 3, 0x0B83);
+    tft.fillCircle(SX(38), SY(176), SR(42), 0x1D46);
+    tft.fillCircle(SX(26), SY(156), SR(4), 0x0B83);
+    tft.fillCircle(SX(50), SY(162), SR(3), 0x0B83);
 
-    // Shaded green warp pipe on right
-    tft.fillRect(262, 146, 40, 30, 0x2585);
-    tft.drawRect(262, 146, 40, 30, 0x0A42);
-    tft.fillRect(268, 147, 6, 28, 0x7F4D);
-    tft.fillRect(292, 147, 7, 28, 0x13A3);
-    tft.fillRect(258, 132, 48, 15, 0x2E67);
-    tft.drawRect(258, 132, 48, 15, 0x0A42);
-    tft.fillRect(265, 134, 8, 11, 0x8FAD);
+    tft.fillRect(SX(262), SY(146), SX(40), SY(30), 0x2585);
+    tft.drawRect(SX(262), SY(146), SX(40), SY(30), 0x0A42);
+    tft.fillRect(SX(268), SY(147), SX(6), SY(28), 0x7F4D);
+    tft.fillRect(SX(292), SY(147), SX(7), SY(28), 0x13A3);
+    tft.fillRect(SX(258), SY(132), SX(48), SY(15), 0x2E67);
+    tft.drawRect(SX(258), SY(132), SX(48), SY(15), 0x0A42);
+    tft.fillRect(SX(265), SY(134), SX(8), SY(11), 0x8FAD);
 
-    // Two rows of NES brick ground
-    for (int16_t ry : {176, 192}) {
-        for (int16_t gx = 0; gx < SCREEN_W; gx += 16) {
-            tft.fillRect(gx, ry, 15, 15, 0xCA61);
-            tft.drawRect(gx, ry, 16, 16, 0x1881);
-            tft.drawFastHLine(gx + 1, ry + 1, 14, 0xF50E);
-            tft.drawFastVLine(gx + 8, ry + 2, 6, 0x1881);
-            tft.drawFastHLine(gx + 1, ry + 8, 14, 0x1881);
+    const int16_t bs = SY(16);
+    const int16_t rows[2] = {SY(176), static_cast<int16_t>(SY(176) + bs)};
+    for (int16_t ry : rows) {
+        for (int16_t gx = 0; gx < SCREEN_W; gx += bs) {
+            tft.fillRect(gx, ry, bs - 1, bs - 1, 0xCA61);
+            tft.drawRect(gx, ry, bs, bs, 0x1881);
+            tft.drawFastHLine(gx + 1, ry + 1, bs - 2, 0xF50E);
+            tft.drawFastVLine(gx + bs / 2, ry + 2, bs / 2 - 2, 0x1881);
+            tft.drawFastHLine(gx + 1, ry + bs / 2, bs - 2, 0x1881);
         }
     }
 
-    // Arcade HUD
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
     if (valid) {
@@ -670,53 +666,50 @@ void drawMarioStaticBg(TFT_eSPI& tft, const struct tm& ti, bool valid,
         snprintf(dbuf, sizeof(dbuf), "%d %s %s", ti.tm_mday,
                  TR_MONTHS_SHORT[ti.tm_mon % 12], TR_DAYS_SHORT[ti.tm_wday % 7]);
         tft.setTextColor(TFT_WHITE, SKY_COL);
-        tft.drawString(dbuf, 12, 32);
+        tft.drawString(dbuf, SX(12), SY(32));
     }
     if (wx.valid) {
-        tft.fillCircle(104, 38, 6, COL_ACCENT_2);
+        tft.fillCircle(SX(104), SY(38), SR(6), COL_ACCENT_2);
         char wbuf[16];
         snprintf(wbuf, sizeof(wbuf), "%.0f°C", wx.tempC);
         tft.setTextColor(0xFF92, SKY_COL);
-        tft.drawString(wbuf, 115, 32);
+        tft.drawString(wbuf, SX(115), SY(32));
     }
     tft.unloadFont();
     (void)cfg;
 }
 
 void animateMarioJumpHit(TFT_eSPI& tft, int oldDigit, int newDigit) {
-    // Animate inside offscreen sprite covering x=182..242 (w=60), y=32..176 (h=144)
-    constexpr int16_t sx = 182, sy = 32, sw = 60, sh = 144;
+    const int16_t sx = SX(182), sy = SY(32), sw = SX(62), sh = SY(144);
     TFT_eSprite spr(&tft);
     spr.setColorDepth(16);
     if (!spr.createSprite(sw, sh)) {
-        drawSmbBlock(tft, 188, 68, newDigit);
-        drawMarioSprite(tft, MARIO_STAND, 193, 144);
+        drawSmbBlock(tft, SX(188), SY(68), newDigit);
+        drawMarioSprite(tft, MARIO_STAND, SX(193), SY(144));
         return;
     }
 
     constexpr int FRAMES = 12;
     for (int f = 0; f <= FRAMES; ++f) {
         spr.fillSprite(SKY_COL);
-        // Normalized jump arc 0..1..0
         float t = static_cast<float>(f) / FRAMES;
-        float arc = 4.0f * t * (1.0f - t); // peaks at 1.0 at f == FRAMES/2
-        int16_t marioY = 144 - static_cast<int16_t>(arc * 42.0f);
+        float arc = 4.0f * t * (1.0f - t);
+        int16_t marioY = SY(144) - static_cast<int16_t>(arc * SY(42));
         bool hitPhase = (f >= FRAMES / 2);
-        int16_t blockBounce = (f == 6 || f == 7) ? -10 : ((f == 5 || f == 8) ? -5 : 0);
+        int16_t blockBounce = (f == 6 || f == 7) ? -SY(10) : ((f == 5 || f == 8) ? -SY(5) : 0);
 
-        // Draw popping coin after hit
         if (f >= 6 && f <= 11) {
-            int16_t coinY = (58 - sy) - (f - 5) * 4;
+            int16_t coinY = (SY(58) - sy) - (f - 5) * SY(4);
             if (coinY >= 4) {
-                spr.fillEllipse(209 - sx, coinY, 5, 8, 0xFEA6);
-                spr.drawEllipse(209 - sx, coinY, 5, 8, 0x7A21);
-                spr.drawFastVLine(209 - sx, coinY - 4, 8, 0xFFFC);
+                spr.fillEllipse(SX(209) - sx, coinY, SR(5), SR(8), 0xFEA6);
+                spr.drawEllipse(SX(209) - sx, coinY, SR(5), SR(8), 0x7A21);
+                spr.drawFastVLine(SX(209) - sx, coinY - SR(4), SR(8), 0xFFFC);
             }
         }
 
-        drawSmbBlock(spr, 188 - sx, (68 - sy) + blockBounce, hitPhase ? newDigit : oldDigit);
+        drawSmbBlock(spr, SX(188) - sx, (SY(68) - sy) + blockBounce, hitPhase ? newDigit : oldDigit);
         drawMarioSprite(spr, (arc > 0.2f) ? MARIO_JUMP : MARIO_STAND,
-                        (arc > 0.2f ? 186 : 193) - sx, marioY - sy);
+                        (arc > 0.2f ? SX(186) : SX(193)) - sx, marioY - sy);
         spr.pushSprite(sx, sy);
         delay(28);
     }
@@ -728,19 +721,19 @@ void tickMario(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     struct tm ti{}; bool valid = false; int d[4], sec = 0, dayKey = 0;
     getClockVals(ti, valid, d, sec, dayKey);
     const bool wifiOk = netIsWifiConnected();
-    constexpr int16_t xs[4] = {24, 72, 140, 188};
+    const int16_t xs[4] = {SX(24), SX(72), SX(140), SX(188)};
 
     if (forceFull) {
         tft.fillScreen(COL_BG);
         drawTopBar(tft, "Mario Saat", "Tema", netGetRssi(), wifiOk, fetching);
         drawMarioStaticBg(tft, ti, valid, cfg, wx);
         for (int i = 0; i < 4; ++i) {
-            drawSmbBlock(tft, xs[i], 68, d[i]);
+            drawSmbBlock(tft, xs[i], SY(68), d[i]);
             g_prevDigits[i] = d[i];
         }
-        drawMarioSprite(tft, MARIO_STAND, 193, 144);
-        tft.fillRect(124, 80, 5, 5, TFT_WHITE);
-        tft.fillRect(124, 96, 5, 5, TFT_WHITE);
+        drawMarioSprite(tft, MARIO_STAND, SX(193), SY(144));
+        tft.fillRect(SX(124), SY(80), SR(5), SR(5), TFT_WHITE);
+        tft.fillRect(SX(124), SY(96), SR(5), SR(5), TFT_WHITE);
         drawBottomNav(tft, 0);
         g_prevSec = sec; g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;
         return;
@@ -749,7 +742,7 @@ void tickMario(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     for (int i = 0; i < 3; ++i) {
         if (d[i] != g_prevDigits[i]) {
             g_prevDigits[i] = d[i];
-            drawSmbBlock(tft, xs[i], 68, d[i]);
+            drawSmbBlock(tft, xs[i], SY(68), d[i]);
         }
     }
     if (d[3] != g_prevDigits[3]) {
@@ -760,8 +753,8 @@ void tickMario(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     if (sec != g_prevSec) {
         g_prevSec = sec;
         const uint16_t cc = (sec % 2 == 0) ? TFT_WHITE : 0x2292;
-        tft.fillRect(124, 80, 5, 5, cc);
-        tft.fillRect(124, 96, 5, 5, cc);
+        tft.fillRect(SX(124), SY(80), SR(5), SR(5), cc);
+        tft.fillRect(SX(124), SY(96), SR(5), SR(5), cc);
     }
     if (dayKey != g_prevDay || wx.updatedAtMs != g_prevWxMs) {
         g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;
@@ -778,26 +771,26 @@ void tickMario(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
 // 6. TETRIS THEME CLOCK (ONLY CHANGING DIGIT RECEIVES FALLING PIECES)
 // =========================================================================
 const char* const TETRIS_MAP[10][5] PROGMEM = {
-    {"III", "S.L", "S.L", "O.J", "OOJ"}, // 0
-    {".I.", "II.", ".I.", ".I.", "LLL"}, // 1
-    {"III", "..L", "TTT", "Z..", "OOO"}, // 2
-    {"LLL", "..L", "SSS", "..J", "JJJ"}, // 3
-    {"S.L", "S.L", "TTT", "..J", "..J"}, // 4
-    {"ZZZ", "Z..", "TTT", "..L", "OOO"}, // 5
-    {"TTT", "T..", "ZZO", "ZOO", "JJO"}, // 6
-    {"III", "..L", "..L", ".J.", ".J."}, // 7
-    {"TTT", "S.L", "OOO", "Z.J", "ZZJ"}, // 8
-    {"TTT", "S.L", "OOO", "..J", "JJJ"}  // 9
+    {"III", "S.L", "S.L", "O.J", "OOJ"},
+    {".I.", "II.", ".I.", ".I.", "LLL"},
+    {"III", "..L", "TTT", "Z..", "OOO"},
+    {"LLL", "..L", "SSS", "..J", "JJJ"},
+    {"S.L", "S.L", "TTT", "..J", "..J"},
+    {"ZZZ", "Z..", "TTT", "..L", "OOO"},
+    {"TTT", "T..", "ZZO", "ZOO", "JJO"},
+    {"III", "..L", "..L", ".J.", ".J."},
+    {"TTT", "S.L", "OOO", "Z.J", "ZZJ"},
+    {"TTT", "S.L", "OOO", "..J", "JJJ"}
 };
 
 uint16_t tetroColor(char k) {
-    if (k == 'I') return 0x26FF; // Cyan
-    if (k == 'O') return 0xFE85; // Yellow
-    if (k == 'T') return 0xB27E; // Purple
-    if (k == 'S') return 0x470C; // Green
-    if (k == 'Z') return 0xF229; // Red
-    if (k == 'J') return 0x3C1F; // Blue
-    if (k == 'L') return 0xFC84; // Orange
+    if (k == 'I') return 0x26FF;
+    if (k == 'O') return 0xFE85;
+    if (k == 'T') return 0xB27E;
+    if (k == 'S') return 0x470C;
+    if (k == 'Z') return 0xF229;
+    if (k == 'J') return 0x3C1F;
+    if (k == 'L') return 0xFC84;
     return 0;
 }
 
@@ -809,17 +802,16 @@ void drawTetroCell(Target& dst, int16_t x, int16_t y, int16_t bs, uint16_t c) {
 }
 
 void drawTetrisColumnStatic(TFT_eSPI& tft, int colIdx, int digit) {
-    constexpr int16_t xs[4] = {20, 66, 124, 170};
-    constexpr int16_t bs = 12;
-    constexpr int16_t dy = 92;
+    const int16_t xs[4] = {SX(20), SX(66), SX(124), SX(170)};
+    const int16_t bs = SY(12);
+    const int16_t dy = SY(92);
     const int16_t x0 = xs[colIdx];
 
-    // Clear column above floor
-    tft.fillRect(x0, 30, 3 * bs, 144, 0x0883);
+    tft.fillRect(x0, SY(30), 3 * bs, SY(144), 0x0883);
     for (int16_t gx = x0; gx <= x0 + 3 * bs; gx += bs) {
-        tft.drawFastVLine(gx, 30, 144, 0x10E5);
+        tft.drawFastVLine(gx, SY(30), SY(144), 0x10E5);
     }
-    for (int16_t gy = 30; gy < 174; gy += bs) {
+    for (int16_t gy = SY(30); gy < SY(174); gy += bs) {
         tft.drawFastHLine(x0, gy, 3 * bs, 0x10E5);
     }
 
@@ -834,12 +826,12 @@ void drawTetrisColumnStatic(TFT_eSPI& tft, int colIdx, int digit) {
 }
 
 void animateTetrisDigitDrop(TFT_eSPI& tft, int colIdx, int newDigit) {
-    constexpr int16_t xs[4] = {20, 66, 124, 170};
-    constexpr int16_t bs = 12;
-    constexpr int16_t dy = 92;
+    const int16_t xs[4] = {SX(20), SX(66), SX(124), SX(170)};
+    const int16_t bs = SY(12);
+    const int16_t dy = SY(92);
     const int16_t x0 = xs[colIdx];
-    constexpr int16_t cw = 3 * bs;
-    constexpr int16_t ch = 144;
+    const int16_t cw = 3 * bs;
+    const int16_t ch = SY(144);
 
     TFT_eSprite spr(&tft);
     spr.setColorDepth(16);
@@ -848,31 +840,28 @@ void animateTetrisDigitDrop(TFT_eSPI& tft, int colIdx, int newDigit) {
         return;
     }
 
-    // Drop row-by-row from bottom (r=4) up to top (r=0), ONLY in this changing column!
     for (int settleRow = 4; settleRow >= 0; --settleRow) {
-        const int16_t targetY = (dy - 30) + settleRow * bs;
-        for (int16_t dropY = 4; dropY <= targetY; dropY += 12) {
+        const int16_t targetY = (dy - SY(30)) + settleRow * bs;
+        for (int16_t dropY = 4; dropY <= targetY; dropY += bs) {
             spr.fillSprite(0x0883);
             for (int16_t gx = 0; gx < cw; gx += bs) spr.drawFastVLine(gx, 0, ch, 0x10E5);
             for (int16_t gy = 0; gy < ch; gy += bs) spr.drawFastHLine(0, gy, cw, 0x10E5);
 
-            // Already landed rows below settleRow
             for (int r = settleRow + 1; r < 5; ++r) {
                 const char* row = TETRIS_MAP[newDigit % 10][r];
                 for (int c = 0; c < 3; ++c) {
                     if (row[c] != '.') {
-                        drawTetroCell(spr, c * bs, (dy - 30) + r * bs, bs, tetroColor(row[c]));
+                        drawTetroCell(spr, c * bs, (dy - SY(30)) + r * bs, bs, tetroColor(row[c]));
                     }
                 }
             }
-            // Currently dropping row
             const char* curRow = TETRIS_MAP[newDigit % 10][settleRow];
             for (int c = 0; c < 3; ++c) {
                 if (curRow[c] != '.') {
                     drawTetroCell(spr, c * bs, dropY, bs, tetroColor(curRow[c]));
                 }
             }
-            spr.pushSprite(x0, 30);
+            spr.pushSprite(x0, SY(30));
             delay(18);
         }
     }
@@ -881,21 +870,22 @@ void animateTetrisDigitDrop(TFT_eSPI& tft, int colIdx, int newDigit) {
 }
 
 void drawTetrisSidePanel(TFT_eSPI& tft, const struct tm& ti, bool valid, const WeatherData& wx) {
-    constexpr int16_t sx = 228;
-    tft.fillRoundRect(sx, 28, SCREEN_W - sx - 10, 177, 8, COL_SURFACE);
-    tft.drawRoundRect(sx, 28, SCREEN_W - sx - 10, 177, 8, COL_BORDER);
+    const int16_t sx = SX(228);
+    const int16_t sw = SCREEN_W - sx - SX(10);
+    tft.fillRoundRect(sx, SY(28), sw, SY(177), 8, COL_SURFACE);
+    tft.drawRoundRect(sx, SY(28), sw, SY(177), 8, COL_BORDER);
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString("SONRAKİ", sx + 41, 42);
+    tft.drawString("SONRAKİ", sx + sw / 2, SY(42));
     tft.unloadFont();
 
-    // Mini L-piece
+    const int16_t ps = SR(11);
     for (auto p : {Pt{26, 60}, Pt{26, 72}, Pt{26, 84}, Pt{38, 84}}) {
-        drawTetroCell(tft, sx + p.x, p.y, 11, COL_ACCENT_2);
+        drawTetroCell(tft, sx + SX(p.x), SY(p.y), ps, COL_ACCENT_2);
     }
-    tft.drawFastHLine(sx + 10, 110, 62, COL_BORDER);
+    tft.drawFastHLine(sx + SX(10), SY(110), sw - SX(20), COL_BORDER);
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
@@ -903,15 +893,15 @@ void drawTetrisSidePanel(TFT_eSPI& tft, const struct tm& ti, bool valid, const W
         char dbuf[16];
         snprintf(dbuf, sizeof(dbuf), "%d %s", ti.tm_mday, TR_MONTHS_SHORT[ti.tm_mon % 12]);
         tft.setTextColor(COL_TEXT, COL_SURFACE);
-        tft.drawString(dbuf, sx + 41, 128);
+        tft.drawString(dbuf, sx + sw / 2, SY(128));
         tft.setTextColor(COL_MUTED, COL_SURFACE);
-        tft.drawString(TR_DAYS_SHORT[ti.tm_wday % 7], sx + 41, 148);
+        tft.drawString(TR_DAYS_SHORT[ti.tm_wday % 7], sx + sw / 2, SY(148));
     }
     if (wx.valid) {
         char wbuf[12];
         snprintf(wbuf, sizeof(wbuf), "%.0f°C", wx.tempC);
         tft.setTextColor(COL_CYAN, COL_SURFACE);
-        tft.drawString(wbuf, sx + 41, 178);
+        tft.drawString(wbuf, sx + sw / 2, SY(178));
     }
     tft.unloadFont();
 }
@@ -920,35 +910,34 @@ void tickTetris(TFT_eSPI& tft, const WeatherData& wx, bool fetching, bool forceF
     struct tm ti{}; bool valid = false; int d[4], sec = 0, dayKey = 0;
     getClockVals(ti, valid, d, sec, dayKey);
     const bool wifiOk = netIsWifiConnected();
+    const int16_t bs = SY(12);
 
     if (forceFull) {
         tft.fillScreen(COL_BG);
         drawTopBar(tft, "Tetris Saat", "Tema", netGetRssi(), wifiOk, fetching);
-        tft.fillRect(10, 28, 212, 177, 0x0883);
-        tft.drawRect(10, 28, 212, 177, 0x3A2C);
-        for (int16_t gx = 22; gx < 222; gx += 12) tft.drawFastVLine(gx, 30, 173, 0x10E5);
-        for (int16_t gy = 40; gy < 205; gy += 12) tft.drawFastHLine(12, gy, 208, 0x10E5);
+        tft.fillRect(SX(10), SY(28), SX(212), SY(177), 0x0883);
+        tft.drawRect(SX(10), SY(28), SX(212), SY(177), 0x3A2C);
+        for (int16_t gx = SX(22); gx < SX(220); gx += bs) tft.drawFastVLine(gx, SY(30), SY(173), 0x10E5);
+        for (int16_t gy = SY(40); gy < SY(204); gy += bs) tft.drawFastHLine(SX(12), gy, SX(208), 0x10E5);
 
-        // Floor debris
         const char keys[6] = {'Z', 'I', 'O', 'S', 'T', 'L'};
         for (int i = 0; i < 17; ++i) {
-            drawTetroCell(tft, 14 + i * 12, 191, 12, tetroColor(keys[i % 6]));
-            if (i % 4 != 3) drawTetroCell(tft, 14 + i * 12, 179, 12, tetroColor(keys[(i + 2) % 6]));
+            drawTetroCell(tft, SX(14) + i * bs, SY(191), bs, tetroColor(keys[i % 6]));
+            if (i % 4 != 3) drawTetroCell(tft, SX(14) + i * bs, SY(179), bs, tetroColor(keys[(i + 2) % 6]));
         }
 
         for (int i = 0; i < 4; ++i) {
             drawTetrisColumnStatic(tft, i, d[i]);
             g_prevDigits[i] = d[i];
         }
-        drawTetroCell(tft, 108, 106, 10, COL_GOLD);
-        drawTetroCell(tft, 108, 130, 10, COL_GOLD);
+        drawTetroCell(tft, SX(108), SY(106), SR(10), COL_GOLD);
+        drawTetroCell(tft, SX(108), SY(130), SR(10), COL_GOLD);
         drawTetrisSidePanel(tft, ti, valid, wx);
         drawBottomNav(tft, 0);
         g_prevSec = sec; g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;
         return;
     }
 
-    // Drop pieces ONLY in columns whose digit actually changed!
     for (int i = 0; i < 4; ++i) {
         if (d[i] != g_prevDigits[i]) {
             g_prevDigits[i] = d[i];
@@ -958,8 +947,8 @@ void tickTetris(TFT_eSPI& tft, const WeatherData& wx, bool fetching, bool forceF
     if (sec != g_prevSec) {
         g_prevSec = sec;
         const uint16_t cc = (sec % 2 == 0) ? COL_GOLD : 0x2104;
-        drawTetroCell(tft, 108, 106, 10, cc);
-        drawTetroCell(tft, 108, 130, 10, cc);
+        drawTetroCell(tft, SX(108), SY(106), SR(10), cc);
+        drawTetroCell(tft, SX(108), SY(130), SR(10), cc);
     }
     if (dayKey != g_prevDay || wx.updatedAtMs != g_prevWxMs) {
         g_prevDay = dayKey; g_prevWxMs = wx.updatedAtMs;

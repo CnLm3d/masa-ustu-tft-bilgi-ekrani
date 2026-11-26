@@ -9,12 +9,12 @@
 #include <time.h>
 
 namespace {
-constexpr int16_t CARD_W = 134;
-constexpr int16_t CARD_H = 134;
+constexpr int16_t CARD_W = SX(134);
+constexpr int16_t CARD_H = SY(134);
 constexpr int16_t HALF_H = CARD_H / 2;
-constexpr int16_t HOUR_X = 16;
-constexpr int16_t MIN_X  = 170;
-constexpr int16_t CARD_Y = 33;
+constexpr int16_t HOUR_X = SX(16);
+constexpr int16_t MIN_X  = SX(170);
+constexpr int16_t CARD_Y = SY(33);
 
 int g_lastHour = -1;
 int g_lastMin  = -1;
@@ -32,30 +32,33 @@ uint16_t scaleRgb565(uint16_t c, uint16_t scale256) {
     return static_cast<uint16_t>((r << 11) | (g << 5) | b);
 }
 
-void renderFlipCardToSprite(TFT_eSprite& spr, const char* twoDigits) {
-    spr.fillSprite(COL_BG);
+template <typename Target>
+void renderFlipCardToTarget(Target& dst, int16_t ox, int16_t oy, const char* twoDigits) {
+    dst.fillRoundRect(ox, oy, CARD_W, CARD_H, 10, COL_CARD_BOT);
+    dst.fillRoundRect(ox, oy, CARD_W, HALF_H + 6, 10, COL_CARD_TOP);
+    dst.fillRect(ox, oy + HALF_H, CARD_W, 8, COL_CARD_BOT);
+    dst.drawRoundRect(ox, oy, CARD_W, CARD_H, 10, COL_BORDER);
 
-    spr.fillRoundRect(0, 0, CARD_W, CARD_H, 10, COL_CARD_BOT);
-    spr.fillRoundRect(0, 0, CARD_W, HALF_H + 6, 10, COL_CARD_TOP);
-    spr.fillRect(0, HALF_H, CARD_W, 8, COL_CARD_BOT);
-    spr.drawRoundRect(0, 0, CARD_W, CARD_H, 10, COL_BORDER);
+    dst.loadFont(SegoeUIBold88Digits);
+    dst.setTextDatum(MC_DATUM);
+    dst.setTextColor(COL_TEXT);
+    dst.drawString(twoDigits, ox + CARD_W / 2, oy + CARD_H / 2 + 2);
+    dst.unloadFont();
 
-    spr.loadFont(SegoeUIBold88Digits);
-    spr.setTextDatum(MC_DATUM);
-    spr.setTextColor(COL_TEXT);
-    spr.drawString(twoDigits, CARD_W / 2, CARD_H / 2 + 2);
-    spr.unloadFont();
-
-    spr.fillRect(1, HALF_H - 1, CARD_W - 2, 3, COL_HINGE);
-    spr.fillRoundRect(3, HALF_H - 5, 5, 10, 2, COL_MUTED);
-    spr.fillRoundRect(CARD_W - 8, HALF_H - 5, 5, 10, 2, COL_MUTED);
+    dst.fillRect(ox + 1, oy + HALF_H - 1, CARD_W - 2, 3, COL_HINGE);
+    dst.fillRoundRect(ox + 3, oy + HALF_H - 5, 5, 10, 2, COL_MUTED);
+    dst.fillRoundRect(ox + CARD_W - 8, oy + HALF_H - 5, 5, 10, 2, COL_MUTED);
 }
 
 void drawStaticCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* twoDigits) {
     TFT_eSprite spr(&tft);
     spr.setColorDepth(16);
-    if (!spr.createSprite(CARD_W, CARD_H)) return;
-    renderFlipCardToSprite(spr, twoDigits);
+    if (!spr.createSprite(CARD_W, CARD_H)) {
+        renderFlipCardToTarget(tft, x, y, twoDigits);
+        return;
+    }
+    spr.fillSprite(COL_BG);
+    renderFlipCardToTarget(spr, 0, 0, twoDigits);
     spr.pushSprite(x, y);
     spr.deleteSprite();
 }
@@ -71,15 +74,18 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
     TFT_eSprite oldTop(&tft);
     oldTop.setColorDepth(16);
     if (!oldTop.createSprite(CARD_W, HALF_H)) {
-        renderFlipCardToSprite(newCard, newStr);
+        newCard.fillSprite(COL_BG);
+        renderFlipCardToTarget(newCard, 0, 0, newStr);
         newCard.pushSprite(x, y);
         newCard.deleteSprite();
         return;
     }
 
-    renderFlipCardToSprite(newCard, oldStr);
+    newCard.fillSprite(COL_BG);
+    renderFlipCardToTarget(newCard, 0, 0, oldStr);
     memcpy(oldTop.getPointer(), newCard.getPointer(), static_cast<size_t>(CARD_W) * HALF_H * 2);
-    renderFlipCardToSprite(newCard, newStr);
+    newCard.fillSprite(COL_BG);
+    renderFlipCardToTarget(newCard, 0, 0, newStr);
 
     uint16_t rowBuf[CARD_W];
     const bool prevSwap = tft.getSwapBytes();
@@ -139,14 +145,14 @@ void animateFlipCard(TFT_eSPI& tft, int16_t x, int16_t y, const char* oldStr, co
 
 void drawColon(TFT_eSPI& tft, bool on) {
     const uint16_t c = on ? COL_ACCENT : COL_BORDER;
-    tft.fillCircle(160, 86, 4, c);
-    tft.fillCircle(160, 114, 4, c);
+    tft.fillCircle(SX(160), SY(86), SR(4), c);
+    tft.fillCircle(SX(160), SY(114), SR(4), c);
 }
 
 void drawDateAndWeatherPill(TFT_eSPI& tft, const struct tm& ti, bool timeValid,
                             const DeviceConfig& cfg, const WeatherData& wx) {
-    tft.fillRoundRect(16, 172, SCREEN_W - 32, 24, 7, COL_SURFACE);
-    tft.drawRoundRect(16, 172, SCREEN_W - 32, 24, 7, COL_BORDER);
+    tft.fillRoundRect(SX(16), SY(172), SCREEN_W - SX(32), SY(24), 7, COL_SURFACE);
+    tft.drawRoundRect(SX(16), SY(172), SCREEN_W - SX(32), SY(24), 7, COL_BORDER);
 
     char dateBuf[40];
     if (timeValid) {
@@ -159,23 +165,23 @@ void drawDateAndWeatherPill(TFT_eSPI& tft, const struct tm& ti, bool timeValid,
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(dateBuf, 26, 184);
+    tft.drawString(dateBuf, SX(26), SY(184));
 
     if (wx.valid) {
         char wxBuf[48];
         snprintf(wxBuf, sizeof(wxBuf), "%s %.0f°C", cfg.city, wx.tempC);
         tft.setTextDatum(MR_DATUM);
         tft.setTextColor(COL_ACCENT_2, COL_SURFACE);
-        tft.drawString(wxBuf, SCREEN_W - 26, 184);
+        tft.drawString(wxBuf, SCREEN_W - SX(26), SY(184));
     }
     tft.unloadFont();
 }
 
 void drawSecondBar(TFT_eSPI& tft, int sec) {
-    const int16_t barX = 16;
-    const int16_t barY = 200;
-    const int16_t barW = SCREEN_W - 32;
-    const int16_t barH = 4;
+    const int16_t barX = SX(16);
+    const int16_t barY = SY(200);
+    const int16_t barW = SCREEN_W - SX(32);
+    const int16_t barH = SY(4);
     tft.fillRoundRect(barX, barY, barW, barH, 2, COL_SURFACE);
     const int16_t fillW = (barW * (sec + 1)) / 60;
     if (fillW > 2) {

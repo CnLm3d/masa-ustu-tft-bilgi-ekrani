@@ -4,25 +4,25 @@
 #include "types.h"
 #include <TFT_eSPI.h>
 
-constexpr Rect RECT_TOP_PILL   = {212, 0, 56, 28};
-constexpr Rect RECT_NAV_CLOCK  = {0, 208, 80, 32};
-constexpr Rect RECT_NAV_MARKET = {80, 208, 80, 32};
-constexpr Rect RECT_NAV_NEWS   = {160, 208, 80, 32};
-constexpr Rect RECT_NAV_MENU   = {240, 208, 80, 32};
+constexpr Rect RECT_TOP_PILL   = {SX(212), 0, SX(56), SY(28)};
+constexpr Rect RECT_NAV_CLOCK  = {0,       SY(208), SX(80), SY(32)};
+constexpr Rect RECT_NAV_MUSIC  = {SX(80),  SY(208), SX(80), SY(32)};
+constexpr Rect RECT_NAV_MARKET = {SX(160), SY(208), SX(80), SY(32)};
+constexpr Rect RECT_NAV_MENU   = {SX(240), SY(208), SX(80), SY(32)};
 
-constexpr Rect RECT_SET_WIFI = {28, 48, 264, 44};
-constexpr Rect RECT_SET_CAL  = {28, 104, 264, 44};
-constexpr Rect RECT_SET_BACK = {28, 160, 264, 38};
+constexpr Rect RECT_SET_WIFI = {SX(28), SY(48),  SX(264), SY(44)};
+constexpr Rect RECT_SET_CAL  = {SX(28), SY(104), SX(264), SY(44)};
+constexpr Rect RECT_SET_BACK = {SX(28), SY(160), SX(264), SY(38)};
 
 constexpr Rect RECT_MENU_TILES[8] = {
-    {9,   34, 71, 80}, // 0: Saat
-    {86,  34, 71, 80}, // 1: Hava
-    {163, 34, 71, 80}, // 2: Piyasa
-    {240, 34, 71, 80}, // 3: Dünya
-    {9,  120, 71, 80}, // 4: Alarm
-    {86, 120, 71, 80}, // 5: Haber
-    {163,120, 71, 80}, // 6: Odak (Pomodoro)
-    {240,120, 71, 80}  // 7: Ayar
+    {SX(9),   SY(34),  SX(71), SY(80)}, // 0: Saat
+    {SX(86),  SY(34),  SX(71), SY(80)}, // 1: Hava
+    {SX(163), SY(34),  SX(71), SY(80)}, // 2: Piyasa
+    {SX(240), SY(34),  SX(71), SY(80)}, // 3: Dünya
+    {SX(9),   SY(120), SX(71), SY(80)}, // 4: Alarm
+    {SX(86),  SY(120), SX(71), SY(80)}, // 5: Haber
+    {SX(163), SY(120), SX(71), SY(80)}, // 6: Odak (Pomodoro)
+    {SX(240), SY(120), SX(71), SY(80)}  // 7: Müzik (Spotify & BT)
 };
 
 void drawTopBar(TFT_eSPI& tft, const char* title, const char* rightPill,
