@@ -59,9 +59,13 @@
 
 ![Yeni Menüler ve Bonus Özellikler](docs/media/menus_all.png)
 
+### v3.0 • Waveshare 4" (`480×320`), Bluetooth Hoparlör (`PCM5102A`) & Spotify
+
+![ESP32 DeskHub v3.0 Waveshare 4" & Müzik Ekranları](docs/media/v3_screens_4inch.png)
+
 ---
 
-### Dahili Web UI (`http://deskhub.local`)
+### Dahili Web UI (`http://deskhub.local`) & Donanım Şeması
 
 ESP32 aynı ağa bağlandığında `http://deskhub.local` (veya cihazın yerel IP adresi) üzerinden açılan modern karanlık tema kontrol paneli:
 - 7 saat temasını ve ekrandaki aktif sayfayı tek tıkla anlık değiştirme
@@ -71,6 +75,8 @@ ESP32 aynı ağa bağlandığında `http://deskhub.local` (veya cihazın yerel I
 - Uzaktan dokunmatik kalibrasyon, veri yenileme ve kurulum portalı tetikleme
 
 ![Web UI Kontrol Paneli](docs/media/web_ui_dashboard.png)
+
+![Web UI v3.0 ve Donanım Bağlantı Şeması](docs/media/v3_webui_and_wiring.png)
 
 ---
 
@@ -134,6 +140,15 @@ Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'
 | Pin `23` | `SCK` | `GPIO 18` | Paylaşılan SPI SCLK |
 | Pin `24` | `LCD_CS` | `GPIO 5` | TFT Chip Select |
 | Pin `26` | `TP_CS` | `GPIO 27` | XPT2046 Dokunmatik CS |
+
+![Waveshare 4" Arka 26-Pin Yerleşimi](docs/media/waveshare_4inch_back_pinout.png)
+
+<details>
+<summary>Gerçek Kart Fotoğrafı Üzerinde 26-Pin Haritası (Rev2.0)</summary>
+
+![Gerçek Kart Fotoğrafı Üzerinde 26-Pin Haritası](docs/media/waveshare_4inch_real_photo_pinout.png)
+
+</details>
 
 ### PCM5102A I2S Stereo DAC Bağlantısı (`esp32dev` / `esp32dev_4inch`)
 
