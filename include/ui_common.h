@@ -22,7 +22,7 @@ constexpr Rect RECT_MENU_TILES[8] = {
     {SX(9),   SY(104), SX(71), SY(68)}, // 4: Alarm
     {SX(86),  SY(104), SX(71), SY(68)}, // 5: Haber
     {SX(163), SY(104), SX(71), SY(68)}, // 6: Odak (Pomodoro)
-    {SX(240), SY(104), SX(71), SY(68)}  // 7: Müzik (Spotify & BT)
+    {SX(240), SY(104), SX(71), SY(68)}  // 7: Radyo (İnternet Radyosu)
 };
 
 constexpr Rect RECT_MENU_CYCLE = {SX(9),   SY(178), SX(148), SY(26)};

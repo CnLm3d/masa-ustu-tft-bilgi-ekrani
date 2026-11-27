@@ -1,14 +1,16 @@
-# ESP32 DeskHub v4.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı & Wi-Fi OTA / BT Ses İstasyonu
+# ESP32 DeskHub v5.0.1 — Dokunmatik TFT Bilgi İstasyonu, MP3 İnternet Radyosu & 5× WS2812B LED
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-ESP32%20%7C%20ESP32--C3-00979D?style=for-the-badge&logo=espressif" alt="ESP32">
   <img src="https://img.shields.io/badge/Display-2.4%22%20ILI9341%20%7C%204%22%20Waveshare%20ILI9486-3893FF?style=for-the-badge" alt="Display">
-  <img src="https://img.shields.io/badge/Audio-PCM5102A%20I2S%20%2B%20BT%20A2DP%20%2B%20Spotify-1DB954?style=for-the-badge" alt="Audio">
-  <img src="https://img.shields.io/badge/OTA-Wi--Fi%20%26%20Web%20UI%20v4.0-FFA400?style=for-the-badge" alt="OTA">
-  <img src="https://img.shields.io/badge/Framework-PlatformIO%20%7C%20Arduino-2DD264?style=for-the-badge" alt="PlatformIO">
+  <img src="https://img.shields.io/badge/Radio-PCM5102A%20I2S%20MP3%20(16%20Kanal)-1DB954?style=for-the-badge" alt="Radio">
+  <img src="https://img.shields.io/badge/LED-5x%20WS2812B%20RMT-FFA400?style=for-the-badge" alt="LED">
+  <img src="https://img.shields.io/badge/OTA-Wi--Fi%20%26%20Web%20UI%20v5.0.1-2DD264?style=for-the-badge" alt="OTA">
 </p>
 
-**2.4" 320×240 (`TJCTM24024-SPI` ILI9341)** ve **Waveshare 4" 480×320 (`RPi LCD (A)` ILI9486 + XPT2046)** ekranlar, **PCM5102A I2S DAC** ses çıkışı, **Bluetooth Classic A2DP Hoparlör / AVRCP** ve **Spotify Web API** desteğiyle çalışan, tamamen dokunmatik ve dahili **Web UI (`http://deskhub.local`)** kontrollü masaüstü bilgi istasyonu.
+**2.4" 320×240 (`TJCTM24024-SPI` ILI9341)** ve **Waveshare 4" 480×320 (`RPi LCD (A)` ILI9486 + XPT2046)** dokunmatik ekranlar, **PCM5102A I2S DAC** ile canlı **MP3 İnternet Radyosu**, **5× WS2812B adreslenebilir durum LED'i**, **Wi-Fi OTA güncelleme** ve **Aydınlık / Karanlık tema** destekli masaüstü bilgi ve ses istasyonu.
+
+![ESP32 DeskHub v5.0.1 Gerçek Donanım Galerisi](docs/media/v5_real_hardware_gallery.png)
 
 ---
 
@@ -24,14 +26,14 @@
 
 ### 7 Farklı Saat Teması
 1. **Yaprak Saat (Flip Clock):** Her dakika/saat değişiminde 3D gölgeli mekanik yaprak dönme animasyonu, Türkçe tarih, alt hava özeti ve 60 sn ilerleme barı.
-2. **Nixie Tüp Saat (IN-18):** Üst cam mühür ucu, cam yansımaları, mika tutucular, anod kafesi, sönük katot telleri, pirinç soket pinleri ve ince tel-filament neon parlama.
-3. **Dijital 7-Segment LED:** Saniyeli yüksek kontrastlı camgöbeği LED göstergeler.
-4. **Analog Rolex (Submariner):** Zümrüt-siyah diver bezel, Mercedes akrep, büyüteçli tarih penceresi ve sağda dijital özet paneli.
-5. **Analog Patek Philippe (Nautilus):** Sekizgen çelik kasa, yatay şeritli lacivert kadran, 6 yönünde ay evresi alt kadranı.
-6. **Mario Saat:** Orijinal 16×16 NES Mario piksel karakteri ve 42×42 `?` blokları; dakika başı Mario zıplayarak dakika kutusuna alttan vurur, kutu yukarı seker ve sikke çıkar.
-7. **Tetris Saat:** Değişmeyen rakamlar sabit kalır; sadece değişen hanenin çok renkli tetromino parçaları yukarıdan düşerek rakamı oluşturur.
+2. **Nixie Tüp Saat (IN-18):** Üst cam mühür ucu, cam yansımaları, anod kafesi ve ince tel-filament neon parlama.
+3. **Dijital 7-Segment LED:** Saniyeli yüksek kontrastlı göstergeler (Aydınlık modda klasik Casio-LCD stili).
+4. **Analog Rolex (Submariner):** Zümrüt-siyah/lacivert kadran, Mercedes akrep, büyüteçli tarih penceresi ve sağda dijital özet paneli.
+5. **Analog Patek Philippe (Nautilus):** Sekizgen çelik kasa, yatay şeritli kadran ve 6 yönünde ay evresi alt kadranı.
+6. **Mario Saat:** Orijinal 16×16 NES Mario piksel karakteri ve 42×42 `?` blokları; dakika başı zıplayarak kutuya vurur.
+7. **Tetris Saat:** Sabit rakamlar yerinde kalır; sadece değişen hanenin tetromino blokları düşerek rakamı oluşturur.
 
-![6 Yeni Saat Teması](docs/media/clock_themes_all.png)
+![7 Saat Teması](docs/media/clock_themes_all.png)
 
 <details>
 <summary>2× Yakın Detay Görseli (Nixie, Mario Bekleme/Vuruş ve Tetris)</summary>
@@ -42,46 +44,42 @@
 
 ---
 
-### Yeni Menüler & Akıllı Araçlar
+### v5.0.1 Akıllı Özellikler: İnternet Radyosu, 5× WS2812B LED & Sürgülü Arayüz
 
-- **Ana Menü & v4.0 Akıllı Kontroller:**
-  - **Altta İnteraktif 9 Sayfalık Sürgü (`Saat • Hava • Piyasa • Dünya • Alarm • Haber • Odak • Müzik • Menü`):** Parmağı sürükleyerek anlık önizleme ve bırakınca doğrudan o sayfaya geçiş (veya ray üzerine dokunma).
-  - **Aydınlık & Karanlık Tema:** Ana Menü, Ayarlar ve Web UI (`deskhub.local`) üzerinden hem ekran arayüzünü hem Web UI panelini anlık `Karanlık` / `Aydınlık` moda geçirme (NVS'e kaydedilir).
-  - **45 sn Otomatik Döngü (`Saat → Hava Durumu → Piyasa`):** Ana Menü veya Web UI'dan tek dokunuşla açılıp kapanır; 45 saniyede bir saat, hava ve piyasa arasında otomatik döner (ekrana dokunulduğunda sayaç sıfırlanır, diğer sayfalarda bekler).
-  - **Wi-Fi ile Güncelleme (OTA):** `deskhub.local` Web UI üzerinden tarayıcıdan `.bin` yükleme (`/api/ota`) ve PlatformIO `ArduinoOTA` (`--upload-port deskhub.local`) desteği.
-- **Müzik, Bluetooth Hoparlör & Spotify:**
-  - **Bluetooth A2DP Hoparlör Modu (`PCM5102A I2S DAC`):** ESP32 Classic hedeflerinde (`esp32dev`, `esp32dev_4inch`) telefonunuzdan `ESP32-DeskHub` adıyla doğrudan ses akışı, AVRCP şarkı/sanatçı bilgisi, `<|`, `Oynat/Duraklat`, `|>`, ses kıs/aç ve canlı 16 segment stereo VU metre. *(ESP32 RAM sınırları gereği BT Hoparlör modunda Wi-Fi geçici kapatılır; `Wi-Fi` / `Spotify Wi-Fi` butonuna dokununca anında Wi-Fi moduna dönülür.)*
-  - **Spotify Wi-Fi Kontrolü:** Web UI üzerinden opsiyonel `Client ID`, `Client Secret` ve `Refresh Token` girildiğinde Wi-Fi modunda çalan parçayı, ilerleme çubuğunu ve uzaktan oynatma/ses kontrollerini sunar.
-  - **I2S Alarm Melodisi:** Wi-Fi modunda alarm çaldığında PCM5102A üzerinden tatlı çift tonlu uyandırma melodisi üretir.
-- **Ana Menü (4×2 Dokunmatik Izgara):** Alt bardaki `Menü` sekmesinden tüm uygulamalara tek dokunuşla erişim (ayarlar sağ üst `Ayar` butonundadır).
-- **Hava Durumu (Open-Meteo):** API anahtarsız anlık sıcaklık, hissedilen, nem, rüzgar, vektörel ikonlar ve 3 günlük Türkçe tahmin.
-- **Piyasa (TCMB & Altın):** Resmi `tcmb.gov.tr/kurlar/today.xml` üzerinden `USD/TRY`, `EUR/TRY`, `GBP/TRY` + canlı `Ons Altın ($)` ve `Gram Altın (₺)`.
-- **Dünya Saatleri:** Web UI'dan özelleştirilebilen 4 şehir (varsayılan: İstanbul, Londra, New York, Tokyo) + gündüz/gece göstergesi.
-- **Alarmlar:** 3 bağımsız alarm (`Her Gün` / `Hafta İçi` / `Hafta Sonu`), ekranda dokunmatik saat/dakika düzenleme, `5 dk Ertele` ve opsiyonel pasif buzzer çıkışı.
-- **Google Haberler (TR RSS):** Gündem, Teknoloji, Ekonomi, Bilim ve Spor kategorilerinde Türkçe manşetler (`< Önceki` / `Konu Değiş` / `Sonraki >`).
-- **Odak Zamanlayıcı (Pomodoro):** `25/5 dk` ve `50/10 dk` dairesel ilerleme halkalı çalışma sayacı.
-- **Gece Modu Saati:** Belirlenen saat aralığında göz yormayan düşük parlaklıklı kırmızı gece saati (dokununca 2 dakika uyanır).
+- **İnternet Radyosu (`PCM5102A` I2S + `libhelix` MP3):**
+  - HTTP/HTTPS canlı MP3 (`audio/mpeg`) yayın çalma, **ICY şarkı/program bilgisi (`StreamTitle`)** ve 16 segment canlı stereo VU metre.
+  - **8 canlı test edilmiş varsayılan kanal** (`JoyTürk`, `Süper FM`, `Metro FM`, `JoyTürk Akustik`, `Virgin Radio TR`, `Power Love`, `SomaFM Groove`, `Radio Paradise`).
+  - **Web UI (`http://deskhub.local`)** üzerinden **16 kanala kadar** kendi MP3 linklerinizi ekleme, silme ve tek tıkla çalma (NVS kalıcı hafıza).
+  - Radyo çalarken ses kesilmesini önlemek için arka plan HTTPS güncellemeleri otomatik duraklatılır.
+- **5× Adreslenebilir LED Durum Çubuğu (`WS2812B` · RMT Donanım Sürücüsü):**
+  - **Saat Ekranı:** Saniyede 1 kez (`1000 ms`) yumuşak nefes alma efekti.
+  - **Hava Durumu Sayfası:** Güneşli (sıcak sarı ışıltı / gece ay mavisi), Bulutlu/Sisli (kayan buz mavisi dalga), Yağmur (koyu mavi üstünde düşen cyan damlalar), Kar (parıldayan kar taneleri), Fırtına (mor bulut + ani beyaz şimşek).
+  - **Piyasa Sayfası:** `USD/TRY`, `EUR/TRY`, `GBP/TRY`, `Gram Altın` ve `Ons Altın` satırları sırayla (`2.5 sn`) veya dokunarak vurgulanır; aktif satır artışta **soldan sağa Yeşil dalga**, düşüşte **sağdan sola Kırmızı dalga** üretir.
+  - **Alarm Çalıyor:** 5 LED yüksek dikkat **Şimşek efekti** + PCM5102A zil melodisi.
+  - **Odak / Geri Sayım (Pomodoro):** Kalan süreye göre `5→1` kademeli bar (`Yeşil → Amber → Kırmızı`), mola modunda nefes alan mavi.
+  - **Radyo Çalıyor:** Gerçek zamanlı 5 LED VU seviye çubuğu.
+  - **Gece Modu:** Tüm 5 LED aynı anda yanarak `4 sn` periyotta göz yormayan kısık sıcak Amber nefes efekti.
+  - **Wi-Fi / OTA:** Bağlantı kopuksa sarı tarama; Wi-Fi OTA yüklenirken mavi ilerleme barı.
+- **Altta İnteraktif 9 Sayfalık Sürgü:** `Saat • Hava • Piyasa • Dünya • Alarm • Haber • Odak • Radyo • Menü` arasında parmakla sürükleyip bırakarak anında geçiş.
+- **Aydınlık & Karanlık Tema:** TN `ILI9341` LCD için kalibre edilmiş yüksek kontrastlı Aydınlık tema ve Karanlık tema (NVS kalıcı).
+- **45 sn Otomatik Döngü:** Ana Menü veya Web UI'dan açılarak `Saat → Hava → Piyasa` arasında her 45 saniyede bir döner.
+- **Kablosuz Wi-Fi OTA Güncelleme:** Web UI (`/api/ota`) üzerinden `.bin` yükleme ve PlatformIO `ArduinoOTA` desteği.
+- **Diğer Sayfalar:** Open-Meteo 3 günlük Hava Durumu, TCMB/Altın Piyasa, 4 Dünya Şehri, 3 Bağımsız Alarm (`Her Gün / Hafta İçi / Hafta Sonu`, `5 dk Ertele`), Google Haberler TR RSS (`Gündem, Teknoloji, Ekonomi, Bilim, Spor`) ve Pomodoro (`25/5` – `50/10`).
 
-![Yeni Menüler ve Bonus Özellikler](docs/media/menus_all.png)
+![v5.0 TFT Radyo Karanlık/Aydınlık & 5-LED Önizleme](docs/media/v5_tft_radio_screens.png)
 
-### v3.0 • Waveshare 4" (`480×320`), Bluetooth Hoparlör (`PCM5102A`) & Spotify
-
-![ESP32 DeskHub v3.0 Waveshare 4" & Müzik Ekranları](docs/media/v3_screens_4inch.png)
+![Tüm Menüler ve Bilgi Sayfaları](docs/media/menus_all.png)
 
 ---
 
-### Dahili Web UI (`http://deskhub.local`) & Donanım Şeması
+### Dahili Web Kontrol Paneli (`http://deskhub.local`)
 
-ESP32 aynı ağa bağlandığında `http://deskhub.local` (veya cihazın yerel IP adresi) üzerinden açılan modern karanlık tema kontrol paneli:
-- 7 saat temasını ve ekrandaki aktif sayfayı tek tıkla anlık değiştirme
-- 3 alarmı, 4 dünya şehrini, hava durumu şehrini/koordinatını ve haber kategorisini düzenleme
-- Gece Modu saat aralığı, ekran döndürme (`0° / 180°`) ve buzzer GPIO ayarı
-- Anlık TCMB/Altın kurları, Wi-Fi sinyal gücü ve RAM telemetrisi
-- Uzaktan dokunmatik kalibrasyon, veri yenileme ve kurulum portalı tetikleme
+ESP32 Wi-Fi'a bağlandığında `http://deskhub.local` (veya cihazın yerel IP adresi) üzerinden açılan Aydınlık/Karanlık uyumlu kontrol paneli:
+- **İnternet Radyosu:** Canlı parça takibi, çal/durdur, ses slider'ı (`%0–100`), **16 kanala kadar özel MP3 kanal ekleme/silme**
+- **5× WS2812B LED Kontrolü:** Aç/Kapat, Mod seçimi (`Otomatik`, `Radyo VU`, `Sabit Renk`, `Gece Amber`, `Kapalı`), Parlaklık limiti (`%10–80`), Renk seçici ve **Gökkuşağı Testi**
+- **Sistem & Ekran:** 7 saat teması, 11 sayfa yönlendirme, Aydınlık/Karanlık tema, 45 sn döngü, 3 alarm, şehir/koordinat, haber kategorisi, 4 dünya şehri, Gece Modu, ekran döndürme (`0° / 180°`) ve tarayıcıdan **Wi-Fi OTA (`.bin`) güncelleme**
 
-![Web UI Kontrol Paneli](docs/media/web_ui_dashboard.png)
-
-![Web UI v3.0 ve Donanım Bağlantı Şeması](docs/media/v3_webui_and_wiring.png)
+![Web UI v5.0 Radyo ve LED Paneli](docs/media/v5_webui_radio_led.png)
 
 ---
 
@@ -89,17 +87,19 @@ ESP32 aynı ağa bağlandığında `http://deskhub.local` (veya cihazın yerel I
 
 ```mermaid
 flowchart LR
-    subgraph Core0["ESP32 Core 0 (Arka Plan Ağ Görevi)"]
+    subgraph Core0["ESP32 Core 0 (Ağ & Ses Görevleri)"]
         NTP["NTP (pool.ntp.org)"]
         WX["Open-Meteo HTTPS"]
         MK["TCMB XML + Altın API"]
         RSS["Google News TR RSS"]
+        RAD["MP3 Radyo + ICY\n(libhelix → I2S PCM5102A)"]
     end
-    subgraph Core1["ESP32 Core 1 (UI & Kontrol)"]
-        TOUCH["XPT2046 Dokunmatik\n(Dokunma + Kaydırma)"]
-        TFT["ILI9341 320x240\n(7 Saat + 9 Menü)"]
-        WEB["WebServer + mDNS\n(deskhub.local)"]
-        NVS["Preferences (NVS)\nKalibrasyon & Ayarlar"]
+    subgraph Core1["ESP32 Core 1 (UI, LED & Web)"]
+        TOUCH["XPT2046 Dokunmatik\n(Dokunma + Sürgü)"]
+        TFT["ILI9341 / ILI9486\n(7 Saat + 9 Menü)"]
+        LED["5× WS2812B RMT\n(25ms Durum Motoru)"]
+        WEB["WebServer + Wi-Fi OTA\n(deskhub.local)"]
+        NVS["Preferences (NVS)\nKanal & Ayar Hafızası"]
     end
     Core0 -->|Mutex Korumalı Veri| Core1
     TOUCH --> TFT
@@ -109,80 +109,48 @@ flowchart LR
 
 ---
 
-## Donanım Bağlantı Şeması (`TJCTM24024-SPI`)
+## Donanım Bağlantı Şeması
 
-Ekran ve dahili **XPT2046 dokunmatik kontrolcüsü** aynı SPI hattını farklı `CS` pinleriyle paylaşır (harici buton veya rotary encoder gerekmez).
+![Donanım Bağlantı Şeması ve 5-LED Durum Haritası](docs/media/v5_wiring_and_led_map.png)
 
-| Ekran Pini | ESP32 DevKit / NodeMCU-32S (`esp32dev`) | ESP32-C3 Mini (`esp32c3`) | Açıklama |
+### 2.4" TFT (`TJCTM24024-SPI` ILI9341) & Ortak Pinler
+
+| Ekran Pini | ESP32 DevKit (`esp32dev`) | ESP32-C3 Mini (`esp32c3`) | Açıklama |
 |---|---|---|---|
 | `VCC` | **5V (VIN)** | **5V (VBUS)** | Kart arkasındaki `U1` (3.3V regülatör) için 5V |
 | `GND` | `GND` | `GND` | Ortak şase |
-| `CS` | `GPIO 5` | `GPIO 7` | TFT Chip Select |
-| `RESET` | `GPIO 17` | `GPIO 3` | TFT Reset |
-| `DC` | `GPIO 16` | `GPIO 2` | Data / Command |
-| `SDI (MOSI)` | `GPIO 23` | `GPIO 6` | SPI MOSI |
-| `SCK` | `GPIO 18` | `GPIO 4` | SPI SCLK |
-| `LED` | **3.3V** | **3.3V** | Arka ışık (`3.3V` bağlayın) |
-| `SDO (MISO)` | `GPIO 19` | `GPIO 5` | SPI MISO |
-| `T_CLK` | `GPIO 18` | `GPIO 4` | `SCK` ile paralel |
-| `T_CS` | `GPIO 27` | `GPIO 10` | Dokunmatik Chip Select |
-| `T_DIN` | `GPIO 23` | `GPIO 6` | `SDI (MOSI)` ile paralel |
-| `T_DO` | `GPIO 19` | `GPIO 5` | `SDO (MISO)` ile paralel |
-| `T_IRQ` | *Boş* | *Boş* | Bağlanmaz (yoklama modu) |
+| `CS` / `RESET` / `DC` | `GPIO 5` / `17` / `16` | `GPIO 7` / `3` / `2` | TFT kontrol pinleri |
+| `MOSI` / `MISO` / `SCK` | `GPIO 23` / `19` / `18` | `GPIO 6` / `5` / `4` | Paylaşılan SPI hattı (TFT + Touch) |
+| `LED` | **3.3V** | **3.3V** | Arka ışık |
+| `T_CS` | `GPIO 27` | `GPIO 10` | XPT2046 Dokunmatik Chip Select |
 
-### Waveshare 4" RPi LCD (A) `320×480 ILI9486 + XPT2046` (`esp32dev_4inch`)
+### Waveshare 4" RPi LCD (A) `480×320 ILI9486` (`esp32dev_4inch`)
 
-Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'e bağlantısı (`RPI_DISPLAY_TYPE` shift-register uyumlu, SPI hızı **20 MHz** ile sınırlandırılmıştır):
-
-| Waveshare 26-Pin | Sinyal | ESP32 DevKit (`esp32dev_4inch`) | Açıklama |
-|---|---|---|---|
-| Pin `1 / 17` | `3.3V` | `3.3V` (veya Pin `2/4` → `5V`) | Modül kartındaki regülatöre göre `5V` (`Pin 2`) + `3.3V` (`Pin 1`) |
-| Pin `6 / 9 / 14 / 20 / 25` | `GND` | `GND` | Ortak şase |
-| Pin `18` | `LCD_RS / DC` | `GPIO 16` | Data / Command |
-| Pin `19` | `MOSI (DIN)` | `GPIO 23` | Paylaşılan SPI MOSI (TFT + Touch) |
-| Pin `21` | `MISO (DOUT)` | `GPIO 19` | Paylaşılan SPI MISO (TFT + Touch) |
-| Pin `22` | `RST` | `GPIO 17` | LCD Reset |
-| Pin `23` | `SCK` | `GPIO 18` | Paylaşılan SPI SCLK |
-| Pin `24` | `LCD_CS` | `GPIO 5` | TFT Chip Select |
-| Pin `26` | `TP_CS` | `GPIO 27` | XPT2046 Dokunmatik CS |
-
-![Waveshare 4" Arka 26-Pin Yerleşimi](docs/media/waveshare_4inch_back_pinout.png)
+| Waveshare 26-Pin | Sinyal | ESP32 DevKit (`esp32dev_4inch`) |
+|---|---|---|
+| Pin `1 / 17` (`3.3V`) / Pin `2 / 4` (`5V`) | Besleme | `3.3V` / `5V` |
+| Pin `6 / 9 / 14 / 20 / 25` | `GND` | `GND` |
+| Pin `18 / 22 / 24 / 26` | `DC / RST / LCD_CS / TP_CS` | `GPIO 16 / 17 / 5 / 27` |
+| Pin `19 / 21 / 23` | `MOSI / MISO / SCK` | `GPIO 23 / 19 / 18` |
 
 <details>
-<summary>Gerçek Kart Fotoğrafı Üzerinde 26-Pin Haritası (Rev2.0)</summary>
+<summary>Waveshare 4" Arka 26-Pin Yerleşimi ve Gerçek Kart Haritası</summary>
+
+![Waveshare 4" Arka 26-Pin Yerleşimi](docs/media/waveshare_4inch_back_pinout.png)
 
 ![Gerçek Kart Fotoğrafı Üzerinde 26-Pin Haritası](docs/media/waveshare_4inch_real_photo_pinout.png)
 
 </details>
 
-### PCM5102A I2S Stereo DAC Bağlantısı (`esp32dev` / `esp32dev_4inch`)
+### PCM5102A I2S Stereo DAC & 5× WS2812B LED Bağlantısı
 
-| PCM5102A Pini | ESP32 DevKit Pini | Açıklama |
-|---|---|---|
-| `VIN / VCC` | `5V` (veya `3.3V` modüle göre) | Güç beslemesi |
-| `GND` | `GND` | Ortak şase |
-| `SCK` | **`GND`** | Dahili PLL kullanılır (`GND`'ye bağlanmazsa ses gelmez!) |
-| `BCK` | `GPIO 26` | I2S Bit Clock |
-| `LCK / WS` | `GPIO 25` | I2S Left/Right Word Select |
-| `DIN` | `GPIO 22` | I2S Data Out (ESP32 → DAC) |
-| `FMT` | `GND` | Standart I2S formatı |
-| `XMT / XSMT` | `3.3V` | Mute kapalı (aktif çıkış; 10k dirençle 3.3V veya doğrudan 3.3V) |
-| `OUTL / OUTR` | `3.5 mm Jak / Amfi` | Hat seviyesi (Line-Out) aktif hoparlör/amfi bağlantısı |
-
-*(Not: `ESP32-C3 Mini` üzerinde Bluetooth Classic donanımı olmadığı için `HAS_BT_SPEAKER=0` tanımlıdır; yalnızca Wi-Fi üzerinden Spotify kontrolü aktiftir.)*
-
----
-
-## Dokunmatik Kullanım & İlk Kurulum
-
-1. **İlk Kalibrasyon:** Cihaz ilk açılışta 4 köşe dokunmatik kalibrasyonu ister. Oklara sırayla dokunduğunuzda kalibrasyon NVS belleğe kaydedilir.
-2. **Wi-Fi Kurulumu:** Kayıtlı ağ yoksa cihaz **`ESP32-DeskHub`** adlı şifresiz Wi-Fi ağı açar. Bağlanıp **`http://192.168.4.1`** adresinden Wi-Fi ve şehrinizi kaydedin.
-3. **Alt İnteraktif Sayfa Sürgüsü (`Saat ↔ Menü`):** Alt çubuktaki sürgüyü sağa/sola kaydırıp bırakarak veya noktalara dokunarak 9 ana sayfanın tamamına (`Saat`, `Hava`, `Piyasa`, `Dünya`, `Alarm`, `Haber`, `Odak`, `Müzik`, `Menü`) anında geçin. Menü ekranındayken **`45sn Döngü`**, **`Tema: Aydınlık/Karanlık`** ve sağ üst **`[Ayar]`** butonlarına erişebilirsiniz.
-4. **Saat Ekranı Kısayolları:**
-   - Sağ üst **`[Tema]`** butonu → 7 saat teması arasında geçiş
-   - Dakika tarafına dokunma → aktif temanın animasyon demosu (Yaprak dönüş / Mario zıplama-vuruş / Tetris düşüş)
-   - Saat tarafına dokunma → NTP + Hava + Piyasa yenileme
-   - Alt tarih/hava bandına dokunma → Hava Durumu sayfası
+| Modül Pini | ESP32 DevKit (`esp32dev`) | ESP32-C3 (`esp32c3`) | Kritik Not |
+|---|---|---|---|
+| `PCM5102A VIN / GND` | `5V` / `GND` | `5V` / `GND` | Ortak besleme |
+| `PCM5102A SCK` | **`GND`** | **`GND`** | **Mutlaka GND'ye bağlanmalı** (dahili PLL) |
+| `PCM5102A BCK / LRCK / DIN` | `GPIO 26 / 25 / 22` | `GPIO 8 / 9 / 20` | I2S Saat, Sol/Sağ, Veri |
+| `PCM5102A XSMT / XMT` | **`3.3V` (`A3V3` veya `H3L` köprüsü)** | **`3.3V`** | Mor `GY-PCM5102` kartlarda `XSMT → A3V3` köprüsü gerekir |
+| `5× WS2812B DIN` | **`GPIO 4`** (`330Ω` direnç ile) | **`GPIO 1`** (`330Ω` direnç ile) | `+5V` ve `GND` ortak; `5V 2A` adaptör önerilir |
 
 ---
 
@@ -190,74 +158,52 @@ Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'
 
 | Uç Nokta | Metot | Açıklama |
 |---|---|---|
-| `/` | `GET` | Tek sayfalık Aydınlık/Karanlık uyumlu Web UI |
-| `/api/state` | `GET` | Tema, aydınlık/karanlık, döngü, OTA durumu, sayfa, alarmlar, dünya saatleri ve piyasa JSON |
-| `/api/theme?id=0..6` | `POST` | Saat temasını anlık değiştirir ve NVS'e kaydeder |
+| `/` | `GET` | Tek sayfalık Aydınlık/Karanlık uyumlu Web UI v5.0 |
+| `/api/state` | `GET` | Tema, radyo kanalları/çalma durumu, LED, alarmlar, piyasa ve telemetri JSON |
+| `/api/radio?act=...` | `POST` | `play&idx=`, `stop`, `toggle`, `next`, `prev`, `vol&v=`, `add` (JSON), `del&idx=`, `reset` |
+| `/api/led` | `POST` | `?test=1` gökkuşağı testi veya `{en, mode, bri, col}` JSON kaydı |
+| `/api/theme?id=0..6` | `POST` | Saat temasını anlık değiştirir |
 | `/api/page?id=0..10` | `POST` | Ekrandaki aktif sayfayı değiştirir |
 | `/api/ui?light=0\|1&cyc=0\|1` | `POST` | Aydınlık/Karanlık tema ve 45 sn döngü modunu anlık açar/kapatır |
-| `/api/ota` | `POST` | Tarayıcıdan multipart `.bin` firmware yükleyerek Wi-Fi OTA günceller (`ota_nofs_4MB.csv`) |
+| `/api/ota` | `POST` | Tarayıcıdan multipart `.bin` firmware yükleyerek Wi-Fi OTA günceller |
 | `/api/config` | `POST` | Şehir, koordinat, haber, alarmlar, dünya saatleri, gece modu, yön ve buzzer kaydı |
 | `/api/action?cmd=...` | `POST` | `refresh`, `calibrate`, `portal`, `restart` komutları |
 
 ---
 
-## 3D Baskı Kutu (`enclosure/`)
+## 3D Baskı Kutu & LED Difüzör Kapağı (`enclosure/`)
 
-Desteksiz (support-free) basılabilen, `112×66×44 mm` boyutlu, `68×37 mm` (`77×42 mm` PCB) TFT delik aralıklı ve **14-pin `J2` / DuPont kablo için ~11.5 mm yan + ekstra derinlik boşluklu** 15° eğimli **PLA/PETG** kasa dosyaları `enclosure/stl/` içindedir:
+Desteksiz basılabilen `112×66×44 mm` boyutlu, 15° eğimli ön kasa (**üstten 5× WS2812B LED penceresi eklenmiş güncel STL**) ve yarı saydam **LED difüzör kapağı** `enclosure/stl/` içindedir:
 
 ![3D Baskı Kutu Önizlemesi](enclosure/enclosure_preview.png)
 
-| Parça | Dosya | Baskı Ayarı |
+| Parça | Dosya | Açıklama & Baskı Ayarı |
 |---|---|---|
-| Ön Gövde | [`enclosure/stl/deskhub_front_shell.stl`](enclosure/stl/deskhub_front_shell.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~39 g) |
-| Arka Kapak | [`enclosure/stl/deskhub_back_cover.stl`](enclosure/stl/deskhub_back_cover.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** (~15 g) |
-| Parametrik SCAD | [`enclosure/deskhub_enclosure.scad`](enclosure/deskhub_enclosure.scad) | OpenSCAD ile özelleştirilebilir (`68×37 mm` @ `cx=-3.5 mm`) |
-
-- **Vida Listesi:** `4× M3×6` (TFT montajı) + `4× M3×8` havşalı (arka kapak).
+| Ön Gövde (LED Yuvalı) | [`enclosure/stl/deskhub_front_shell.stl`](enclosure/stl/deskhub_front_shell.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** |
+| LED Difüzör Kapağı | [`enclosure/stl/wsled cap.stl`](enclosure/stl/wsled%20cap.stl) | Beyaz/şeffaf PLA/PETG, `0.16–0.20 mm` |
+| Arka Kapak | [`enclosure/stl/deskhub_back_cover.stl`](enclosure/stl/deskhub_back_cover.stl) | `0.20 mm`, `%18` dolgu, **Desteksiz** |
+| Parametrik SCAD | [`enclosure/deskhub_enclosure.scad`](enclosure/deskhub_enclosure.scad) | OpenSCAD kaynak tasarımı |
 
 ---
 
-## Derleme ve Yükleme (PlatformIO)
+## Hazır Firmware İndir & Derleme (`Releases` / PlatformIO)
 
-Proje **4 MB Flash** üzerinde **iki farklı partisyon profili** sunar:
+Hazır derlenmiş `.bin` dosyalarını [**GitHub Releases**](https://github.com/CnLm3d/masa-ustu-tft-bilgi-ekrani/releases) sayfasından indirebilirsiniz:
 
-| Ortam (`env`) | Ekran & İşlemci | Wi-Fi OTA | BT A2DP Hoparlör | Partisyon |
+- **`*_OTA.bin` dosyaları:** Halihazırda `v4.0+` (`ota_nofs_4MB.csv`) yüklü cihazlarda doğrudan `http://deskhub.local` (veya IP adresi) → **Wi-Fi OTA** alanından tarayıcıyla yüklenir.
+- **`*_FULL_USB_0x0.bin` dosyaları:** Sıfır cihaza veya eski partisyon tablosundan geçişte **tek seferlik USB (`0x0` adresi)** üzerinden yüklenir (`esptool` veya web flasher ile).
+
+| Ortam (`env`) | Ekran & İşlemci | Wi-Fi OTA | LED Pini | Partisyon |
 |---|---|---|---|---|
-| `esp32dev` | 2.4" `320×240` ILI9341 (`ESP32`) | Açık (`Web + ArduinoOTA`) | Kapalı | `ota_nofs_4MB.csv` |
-| `esp32dev_4inch` | Waveshare 4" `480×320` ILI9486 (`ESP32`) | Açık (`Web + ArduinoOTA`) | Kapalı | `ota_nofs_4MB.csv` |
-| `esp32c3` | 2.4" `320×240` ILI9341 (`ESP32-C3`) | Açık (`Web + ArduinoOTA`) | Yok | `ota_nofs_4MB.csv` |
-| `esp32dev_bt` | 2.4" `320×240` ILI9341 (`ESP32`) | Kapalı | Açık (`PCM5102A`) | `huge_app.csv` |
-| `esp32dev_4inch_bt` | Waveshare 4" `480×320` ILI9486 (`ESP32`) | Kapalı | Açık (`PCM5102A`) | `huge_app.csv` |
+| `esp32dev` | 2.4" `320×240` ILI9341 (`ESP32`) | Açık (`Web + ArduinoOTA`) | `GPIO 4` | `ota_nofs_4MB.csv` |
+| `esp32dev_4inch` | Waveshare 4" `480×320` ILI9486 (`ESP32`) | Açık (`Web + ArduinoOTA`) | `GPIO 4` | `ota_nofs_4MB.csv` |
+| `esp32c3` | 2.4" `320×240` ILI9341 (`ESP32-C3`) | Açık (`Web + ArduinoOTA`) | `GPIO 1` | `ota_nofs_4MB.csv` |
 
-*(Not: 4 MB cihazda Wi-Fi OTA özelliğini aktifleştirmek için yeni `ota_nofs_4MB.csv` partisyon tablosunun **ilk seferlik** USB üzerinden yüklenmesi gerekir; sonrasındaki tüm güncellemeler `http://deskhub.local` veya `--upload-port deskhub.local` üzerinden kablosuz yapılabilir.)*
-
-**Wi-Fi OTA Yükleme Örneği (`esp32dev` veya `esp32dev_4inch`):**
 ```powershell
-pio run -e esp32dev -t upload --upload-port deskhub.local
-```
-
-**USB İlk Kurulum / Klasik Yükleme:**
-
-**Waveshare 4" (`480×320`, `ILI9486`) + ESP32 DevKit (`esp32dev_4inch`):**
-```powershell
-pio run -e esp32dev_4inch
-pio run -e esp32dev_4inch -t upload
-```
-
-**2.4" (`320×240`, `ILI9341`) + ESP32 DevKit / NodeMCU-32S (`esp32dev`):**
-```powershell
+# Derleme & USB ilk kurulum:
 pio run -e esp32dev
 pio run -e esp32dev -t upload
-```
 
-**ESP32-C3 Mini (`esp32c3`):**
-```powershell
-pio run -e esp32c3
-pio run -e esp32c3 -t upload
-```
-
-**Türkçe Fontları veya Dokümantasyon Görsellerini Yeniden Üretmek İçin:**
-```powershell
-python tools/generate_fonts.py
-python tools/render_docs_media.py
+# Kablosuz Wi-Fi OTA güncelleme:
+pio run -e esp32dev -t upload --upload-port deskhub.local
 ```

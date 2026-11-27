@@ -26,8 +26,8 @@ void uiMusicDrawMeter(TFT_eSPI& tft, const RadioState& st) {
     const int activeL = st.isPlaying ? ((st.vuLeft * 8 + 5) / 100) : 0;
     const int activeR = st.isPlaying ? ((st.vuRight * 8 + 5) / 100) : 0;
     for (int i = 0; i < 8; ++i) {
-        const uint16_t cL = (i < activeL) ? ((i >= 6) ? COL_ERR : (i >= 4 ? COL_ACCENT_2 : COL_SPOTIFY)) : COL_BORDER;
-        const uint16_t cR = (i < activeR) ? ((i >= 6) ? COL_ERR : (i >= 4 ? COL_ACCENT_2 : COL_SPOTIFY)) : COL_BORDER;
+        const uint16_t cL = (i < activeL) ? ((i >= 6) ? COL_ERR : (i >= 4 ? COL_ACCENT_2 : COL_RADIO)) : COL_BORDER;
+        const uint16_t cR = (i < activeR) ? ((i >= 6) ? COL_ERR : (i >= 4 ? COL_ACCENT_2 : COL_RADIO)) : COL_BORDER;
         tft.fillRoundRect(mx + i * (segW + SX(2)), my, segW, mh, 2, cL);
         tft.fillRoundRect(mx + (i + 8) * (segW + SX(2)), my, segW, mh, 2, cR);
     }
@@ -49,24 +49,24 @@ void uiMusicDraw(TFT_eSPI& tft, const RadioState& st, bool fetching) {
         strlcpy(stBuf, "Kanal Ekleyin (Web UI)", sizeof(stBuf));
     }
     tft.fillRoundRect(RECT_MUS_STATION.x, RECT_MUS_STATION.y, RECT_MUS_STATION.w, RECT_MUS_STATION.h, 7, COL_SURFACE);
-    tft.drawRoundRect(RECT_MUS_STATION.x, RECT_MUS_STATION.y, RECT_MUS_STATION.w, RECT_MUS_STATION.h, 7, COL_SPOTIFY);
+    tft.drawRoundRect(RECT_MUS_STATION.x, RECT_MUS_STATION.y, RECT_MUS_STATION.w, RECT_MUS_STATION.h, 7, COL_RADIO);
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(COL_TEXT, COL_SURFACE);
     tft.drawString(stBuf, RECT_MUS_STATION.x + SX(8), RECT_MUS_STATION.y + RECT_MUS_STATION.h / 2);
 
     const Rect dacBadge = {SX(214), SY(30), SX(94), SY(26)};
-    drawBtn(tft, dacBadge, "PCM5102A", COL_SPOTIFY, COL_SPOTIFY, COL_ON_ACCENT);
+    drawBtn(tft, dacBadge, "PCM5102A", COL_RADIO, COL_RADIO, COL_ON_ACCENT);
     tft.unloadFont();
 
     // Now-Playing Card
     const int16_t cx = SX(12), cy = SY(62), cw = SX(296), ch = SY(94);
-    const uint16_t cardBorder = st.hasError ? COL_ERR : (st.isPlaying ? COL_SPOTIFY : COL_BORDER);
+    const uint16_t cardBorder = st.hasError ? COL_ERR : (st.isPlaying ? COL_RADIO : COL_BORDER);
     tft.fillRoundRect(cx, cy, cw, ch, 10, COL_SURFACE);
     tft.drawRoundRect(cx, cy, cw, ch, 10, cardBorder);
 
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(st.hasError ? COL_ERR : (st.connecting ? COL_ACCENT_2 : COL_SPOTIFY), COL_SURFACE);
+    tft.setTextColor(st.hasError ? COL_ERR : (st.connecting ? COL_ACCENT_2 : COL_RADIO), COL_SURFACE);
     const char* statusTxt = st.statusMsg[0] ? st.statusMsg : (st.isPlaying ? "CANLI MP3 • ICY" : "Hazır");
     tft.drawString(statusTxt, cx + SX(10), cy + SY(7));
 
@@ -102,8 +102,8 @@ void uiMusicDraw(TFT_eSPI& tft, const RadioState& st, bool fetching) {
     drawBtn(tft, RECT_MUS_PREV, "<|", COL_SURFACE, COL_BORDER, COL_TEXT);
     const bool active = st.isPlaying || st.connecting;
     drawBtn(tft, RECT_MUS_PLAY, active ? "Durdur" : "Çal",
-            active ? COL_SPOTIFY : COL_SURFACE,
-            COL_SPOTIFY,
+            active ? COL_RADIO : COL_SURFACE,
+            COL_RADIO,
             active ? COL_ON_ACCENT : COL_TEXT);
     drawBtn(tft, RECT_MUS_NEXT, "|>", COL_SURFACE, COL_BORDER, COL_TEXT);
     drawBtn(tft, RECT_MUS_VOLDN, "Ses -", COL_SURFACE, COL_BORDER, COL_TEXT);

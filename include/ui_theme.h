@@ -20,7 +20,7 @@ struct UiPalette {
     uint16_t cyan;
     uint16_t purple;
     uint16_t nightRed;
-    uint16_t spotify;
+    uint16_t radio;
 };
 
 void uiSetLightTheme(bool light);

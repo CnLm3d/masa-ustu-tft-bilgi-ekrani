@@ -141,7 +141,7 @@ void uiMenuDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
     const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "R"};
     const uint16_t cols[8] = {
         COL_ACCENT, COL_CYAN, COL_GOLD, COL_PURPLE,
-        COL_ERR, COL_ACCENT_2, COL_OK, COL_SPOTIFY
+        COL_ERR, COL_ACCENT_2, COL_OK, COL_RADIO
     };
 
     tft.loadFont(SegoeUI14TR);

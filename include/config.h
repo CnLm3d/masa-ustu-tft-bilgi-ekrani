@@ -87,4 +87,4 @@ constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 12000UL;
 #define COL_CYAN      (uiPalette().cyan)
 #define COL_PURPLE    (uiPalette().purple)
 #define COL_NIGHT_RED (uiPalette().nightRed)
-#define COL_SPOTIFY   (uiPalette().spotify)
+#define COL_RADIO     (uiPalette().radio)

@@ -22,7 +22,7 @@ const UiPalette DARK_PALETTE = {
     0x273F, // cyan: #24E6FF
     0xB27E, // purple: #B24CF5
     0x9924, // nightRed: #9B2620
-    0x1DC9  // spotify: #1DB954
+    0x1DC9  // radio: #1DB954
 };
 
 const UiPalette LIGHT_PALETTE = {
@@ -44,7 +44,7 @@ const UiPalette LIGHT_PALETTE = {
     0x0331, // cyan: #006688 deep teal
     0x5092, // purple: #501090 deep violet
     0x9924, // nightRed: #9B2620
-    0x0403  // spotify: #008018 deep green
+    0x0403  // radio: #008018 deep green
 };
 } // namespace
 
