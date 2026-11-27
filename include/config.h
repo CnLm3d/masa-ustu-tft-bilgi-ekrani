@@ -27,15 +27,29 @@ constexpr int16_t TOP_BAR_H = SY(24);
 constexpr int16_t NAV_BAR_Y = SY(210);
 constexpr int16_t NAV_BAR_H = SY(26);
 
-// PCM5102A I2S DAC pins (ESP32 DevKit)
+// PCM5102A I2S DAC pins
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+constexpr int8_t PIN_I2S_BCK  = 8;
+constexpr int8_t PIN_I2S_WS   = 9;
+constexpr int8_t PIN_I2S_DOUT = 20;
+#else
 constexpr int8_t PIN_I2S_BCK  = 26;
 constexpr int8_t PIN_I2S_WS   = 25;
 constexpr int8_t PIN_I2S_DOUT = 22;
+#endif
+
+// 5x WS2812B Addressable LED Strip (RMT)
+#ifndef LED_STRIP_PIN
+#define LED_STRIP_PIN 4
+#endif
+constexpr uint8_t DEFAULT_LED_PIN        = LED_STRIP_PIN;
+constexpr uint8_t DEFAULT_LED_COUNT      = 5;
+constexpr uint8_t DEFAULT_LED_BRIGHTNESS = 40;
 
 // Optional passive buzzer GPIO (0 = disabled, I2S chime used on PCM5102A by default)
 constexpr uint8_t DEFAULT_BUZZER_PIN = 0;
 
-// Default Wi-Fi, Location & Audio
+// Default Wi-Fi & Location
 constexpr char DEFAULT_WIFI_SSID[] = "WIFI_ADINIZ";
 constexpr char DEFAULT_WIFI_PASS[] = "WIFI_SIFRENIZ";
 constexpr char DEFAULT_CITY_NAME[] = "İstanbul";
@@ -45,13 +59,11 @@ constexpr char DEFAULT_TZ[]        = "TRT-3";
 constexpr char NTP_SERVER_1[]      = "pool.ntp.org";
 constexpr char NTP_SERVER_2[]      = "tr.pool.ntp.org";
 constexpr char MDNS_HOSTNAME[]     = "deskhub";
-constexpr char DEFAULT_BT_NAME[]   = "ESP32-DeskHub";
 
 // Refresh & UI timings
 constexpr uint32_t WEATHER_REFRESH_MS      = 15UL * 60UL * 1000UL;
 constexpr uint32_t NEWS_REFRESH_MS         = 10UL * 60UL * 1000UL;
 constexpr uint32_t MARKET_REFRESH_MS       = 10UL * 60UL * 1000UL;
-constexpr uint32_t SPOTIFY_REFRESH_MS      = 5000UL;
 constexpr uint32_t AUTO_CYCLE_MS           = 45000UL;
 constexpr uint32_t NEWS_AUTO_CYCLE_MS      = 12000UL;
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 12000UL;

@@ -37,6 +37,22 @@ enum class NewsTopic : uint8_t {
     COUNT
 };
 
+enum class LedMode : uint8_t {
+    AUTO = 0,
+    RADIO_VU = 1,
+    SOLID = 2,
+    NIGHT = 3,
+    OFF = 4,
+    COUNT
+};
+
+constexpr size_t MAX_RADIO_STATIONS = 16;
+
+struct RadioStation {
+    char name[28];
+    char url[128];
+};
+
 struct AlarmItem {
     uint8_t hour;
     uint8_t minute;
@@ -65,30 +81,31 @@ struct DeviceConfig {
     uint8_t nightStartHour;
     uint8_t nightEndHour;
     uint8_t buzzerPin;
-    char btName[24];
     uint8_t volume;
-    char spClientId[40];
-    char spClientSecret[40];
-    char spRefreshToken[160];
+    bool ledEnabled;
+    uint8_t ledBrightness; // 10..80 (%)
+    uint8_t ledMode;       // LedMode
+    uint32_t ledColor;     // 0xRRGGBB for SOLID mode
+    uint8_t radioStationCount;
+    uint8_t radioActiveIdx;
+    RadioStation radioStations[MAX_RADIO_STATIONS];
     AlarmItem alarms[3];
     WorldCity worldCities[4];
 };
 
-struct MusicState {
-    bool btActive;
-    bool btConnected;
-    bool spotifyValid;
+struct RadioState {
     bool isPlaying;
+    bool connecting;
+    bool hasError;
+    uint8_t stationIdx;
+    uint8_t stationCount;
     uint8_t volume;
     uint8_t vuLeft;
     uint8_t vuRight;
-    uint8_t sourceMode; // 0 = BT Speaker (PCM5102A), 1 = Spotify Wi-Fi API
-    char title[96];
-    char artist[64];
-    char album[64];
+    uint32_t sampleRate;
+    char stationName[32];
+    char streamTitle[96];
     char statusMsg[48];
-    uint32_t progressMs;
-    uint32_t durationMs;
     uint32_t updatedAtMs;
 };
 

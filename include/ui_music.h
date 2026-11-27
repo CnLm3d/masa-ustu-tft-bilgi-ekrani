@@ -4,14 +4,13 @@
 #include "types.h"
 #include <TFT_eSPI.h>
 
-constexpr Rect RECT_MUS_MODE_BT   = {SX(12),  SY(30), SX(144), SY(26)};
-constexpr Rect RECT_MUS_MODE_WIFI = {SX(164), SY(30), SX(144), SY(26)};
+constexpr Rect RECT_MUS_STATION = {SX(12), SY(30), SX(196), SY(26)};
 
-constexpr Rect RECT_MUS_PREV  = {SX(12),  SY(160), SX(50), SY(40)};
-constexpr Rect RECT_MUS_PLAY  = {SX(68),  SY(160), SX(76), SY(40)};
-constexpr Rect RECT_MUS_NEXT  = {SX(150), SY(160), SX(50), SY(40)};
-constexpr Rect RECT_MUS_VOLDN = {SX(210), SY(160), SX(44), SY(40)};
-constexpr Rect RECT_MUS_VOLUP = {SX(264), SY(160), SX(44), SY(40)};
+constexpr Rect RECT_MUS_PREV  = {SX(12),  SY(162), SX(52), SY(40)};
+constexpr Rect RECT_MUS_PLAY  = {SX(68),  SY(162), SX(72), SY(40)};
+constexpr Rect RECT_MUS_NEXT  = {SX(144), SY(162), SX(52), SY(40)};
+constexpr Rect RECT_MUS_VOLDN = {SX(202), SY(162), SX(51), SY(40)};
+constexpr Rect RECT_MUS_VOLUP = {SX(257), SY(162), SX(51), SY(40)};
 
-void uiMusicDraw(TFT_eSPI& tft, const MusicState& st, bool btSupported, bool fetching);
-void uiMusicDrawMeter(TFT_eSPI& tft, const MusicState& st);
+void uiMusicDraw(TFT_eSPI& tft, const RadioState& st, bool fetching);
+void uiMusicDrawMeter(TFT_eSPI& tft, const RadioState& st);

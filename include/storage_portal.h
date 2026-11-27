@@ -2,6 +2,9 @@
 #include "types.h"
 #include <TFT_eSPI.h>
 
+void loadDefaultRadioStations(DeviceConfig& cfg);
+void saveRadioStations(const DeviceConfig& cfg);
+
 void loadConfig(DeviceConfig& cfg);
 void saveConfig(const DeviceConfig& cfg);
 bool needsSetup(const DeviceConfig& cfg);

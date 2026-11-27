@@ -78,7 +78,7 @@ void drawBottomNav(TFT_eSPI& tft, uint8_t activePageIdx, bool dragging) {
     tft.fillRect(0, NAV_BAR_Y - SY(3), SCREEN_W, SCREEN_H - NAV_BAR_Y + SY(3), COL_BG);
 
     static const char* const SLIDER_LABELS[SLIDER_PAGE_COUNT] = {
-        "Saat", "Hava", "Piyasa", "Dünya", "Alarm", "Haber", "Odak", "Müzik", "Menü"
+        "Saat", "Hava", "Piyasa", "Dünya", "Alarm", "Haber", "Odak", "Radyo", "Menü"
     };
     const uint8_t idx = (activePageIdx < SLIDER_PAGE_COUNT) ? activePageIdx : (SLIDER_PAGE_COUNT - 1);
 
@@ -136,9 +136,9 @@ void uiMenuDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
 
     const char* const labels[8] = {
         "Saat", "Hava", "Piyasa", "Dünya",
-        "Alarm", "Haber", "Odak", "Müzik"
+        "Alarm", "Haber", "Odak", "Radyo"
     };
-    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "M"};
+    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "R"};
     const uint16_t cols[8] = {
         COL_ACCENT, COL_CYAN, COL_GOLD, COL_PURPLE,
         COL_ERR, COL_ACCENT_2, COL_OK, COL_SPOTIFY

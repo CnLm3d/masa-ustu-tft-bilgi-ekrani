@@ -8,6 +8,8 @@ enum class WebActionType : uint8_t {
     APPLY_UI_THEME,
     APPLY_ROTATION,
     CONFIG_UPDATED,
+    RADIO_UPDATED,
+    LED_UPDATED,
     REFRESH_ALL,
     START_CALIBRATION,
     START_PORTAL

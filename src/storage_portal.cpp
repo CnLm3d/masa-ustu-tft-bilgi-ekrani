@@ -11,6 +11,22 @@ namespace {
 constexpr char NVS_NS[] = "deskhub";
 constexpr char AP_SSID[] = "ESP32-DeskHub";
 
+struct DefaultStationDef {
+    const char* name;
+    const char* url;
+};
+
+constexpr DefaultStationDef DEFAULT_STATIONS[8] = {
+    {"JoyTürk",          "http://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC"},
+    {"Süper FM",         "http://playerservices.streamtheworld.com/api/livestream-redirect/SUPER_FM_SC"},
+    {"Metro FM",         "http://playerservices.streamtheworld.com/api/livestream-redirect/METRO_FM_SC"},
+    {"JoyTürk Akustik",  "http://playerservices.streamtheworld.com/api/livestream-redirect/JOYTURK_AKUSTIK_SC"},
+    {"Virgin Radio TR",  "http://playerservices.streamtheworld.com/api/livestream-redirect/VIRGIN_RADIO_SC"},
+    {"Power Love",       "http://listen.powerapp.com.tr/powerlove/mpeg/icecast.audio"},
+    {"SomaFM Groove",    "http://ice1.somafm.com/groovesalad-128-mp3"},
+    {"Radio Paradise",   "http://stream.radioparadise.com/mp3-128"},
+};
+
 String htmlEscape(const char* src) {
     String out;
     for (size_t i = 0; src[i] != '\0'; ++i) {
@@ -145,6 +161,31 @@ function pickCity(v){
 }
 } // namespace
 
+void loadDefaultRadioStations(DeviceConfig& cfg) {
+    cfg.radioStationCount = 8;
+    cfg.radioActiveIdx = 0;
+    for (uint8_t i = 0; i < 8; ++i) {
+        strlcpy(cfg.radioStations[i].name, DEFAULT_STATIONS[i].name, sizeof(cfg.radioStations[i].name));
+        strlcpy(cfg.radioStations[i].url, DEFAULT_STATIONS[i].url, sizeof(cfg.radioStations[i].url));
+    }
+}
+
+void saveRadioStations(const DeviceConfig& cfg) {
+    Preferences prefs;
+    prefs.begin(NVS_NS, false);
+    const uint8_t cnt = min<uint8_t>(cfg.radioStationCount, static_cast<uint8_t>(MAX_RADIO_STATIONS));
+    prefs.putUChar("radCnt", cnt);
+    prefs.putUChar("radIdx", (cnt > 0) ? (cfg.radioActiveIdx % cnt) : 0);
+    for (uint8_t i = 0; i < cnt; ++i) {
+        char kn[8], ku[8];
+        snprintf(kn, sizeof(kn), "r%un", i);
+        snprintf(ku, sizeof(ku), "r%uu", i);
+        prefs.putString(kn, cfg.radioStations[i].name);
+        prefs.putString(ku, cfg.radioStations[i].url);
+    }
+    prefs.end();
+}
+
 void loadConfig(DeviceConfig& cfg) {
     Preferences prefs;
     prefs.begin(NVS_NS, true);
@@ -163,16 +204,30 @@ void loadConfig(DeviceConfig& cfg) {
     cfg.nightEndHour = prefs.getUChar("nightE", 7);
     cfg.buzzerPin = prefs.getUChar("buzz", DEFAULT_BUZZER_PIN);
 
-    String btName = prefs.getString("btName", DEFAULT_BT_NAME);
-    strlcpy(cfg.btName, btName.c_str(), sizeof(cfg.btName));
     cfg.volume = prefs.getUChar("vol", 70);
     if (cfg.volume > 100) cfg.volume = 100;
-    String spId = prefs.getString("spId", "");
-    String spSec = prefs.getString("spSec", "");
-    String spRef = prefs.getString("spRef", "");
-    strlcpy(cfg.spClientId, spId.c_str(), sizeof(cfg.spClientId));
-    strlcpy(cfg.spClientSecret, spSec.c_str(), sizeof(cfg.spClientSecret));
-    strlcpy(cfg.spRefreshToken, spRef.c_str(), sizeof(cfg.spRefreshToken));
+
+    cfg.ledEnabled = prefs.getBool("ledEn", true);
+    cfg.ledBrightness = constrain(prefs.getUChar("ledBri", DEFAULT_LED_BRIGHTNESS), 10, 80);
+    cfg.ledMode = prefs.getUChar("ledMode", static_cast<uint8_t>(LedMode::AUTO)) % static_cast<uint8_t>(LedMode::COUNT);
+    cfg.ledColor = prefs.getUInt("ledCol", 0x3893FF);
+
+    const uint8_t radCnt = prefs.getUChar("radCnt", 0);
+    if (radCnt == 0) {
+        loadDefaultRadioStations(cfg);
+    } else {
+        cfg.radioStationCount = min<uint8_t>(radCnt, static_cast<uint8_t>(MAX_RADIO_STATIONS));
+        cfg.radioActiveIdx = prefs.getUChar("radIdx", 0) % cfg.radioStationCount;
+        for (uint8_t i = 0; i < cfg.radioStationCount; ++i) {
+            char kn[8], ku[8];
+            snprintf(kn, sizeof(kn), "r%un", i);
+            snprintf(ku, sizeof(ku), "r%uu", i);
+            String rn = prefs.getString(kn, "Radyo");
+            String ru = prefs.getString(ku, "");
+            strlcpy(cfg.radioStations[i].name, rn.c_str(), sizeof(cfg.radioStations[i].name));
+            strlcpy(cfg.radioStations[i].url, ru.c_str(), sizeof(cfg.radioStations[i].url));
+        }
+    }
 
     const uint8_t defH[3] = {7, 9, 18};
     const uint8_t defM[3] = {30, 0, 45};
@@ -215,6 +270,10 @@ void loadConfig(DeviceConfig& cfg) {
     if (cfg.rotation != 1 && cfg.rotation != 3) cfg.rotation = 1;
     cfg.nightStartHour %= 24;
     cfg.nightEndHour %= 24;
+
+    if (radCnt == 0) {
+        saveRadioStations(cfg);
+    }
 }
 
 void saveConfig(const DeviceConfig& cfg) {
@@ -234,11 +293,11 @@ void saveConfig(const DeviceConfig& cfg) {
     prefs.putUChar("nightS", cfg.nightStartHour);
     prefs.putUChar("nightE", cfg.nightEndHour);
     prefs.putUChar("buzz", cfg.buzzerPin);
-    prefs.putString("btName", cfg.btName);
     prefs.putUChar("vol", cfg.volume);
-    prefs.putString("spId", cfg.spClientId);
-    prefs.putString("spSec", cfg.spClientSecret);
-    prefs.putString("spRef", cfg.spRefreshToken);
+    prefs.putBool("ledEn", cfg.ledEnabled);
+    prefs.putUChar("ledBri", constrain(cfg.ledBrightness, 10, 80));
+    prefs.putUChar("ledMode", cfg.ledMode);
+    prefs.putUInt("ledCol", cfg.ledColor);
 
     for (int i = 0; i < 3; ++i) {
         char kh[8], km[8], ke[8], kr[8], kl[8];

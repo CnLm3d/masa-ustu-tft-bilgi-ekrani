@@ -1,10 +1,10 @@
 #include "net_services.h"
+#include "audio_radio.h"
 #include "config.h"
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
-#include <base64.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
@@ -15,23 +15,15 @@ DeviceConfig g_cfg{};
 WeatherData g_weather{};
 NewsData g_news{};
 MarketData g_market{};
-MusicState g_spotify{};
 
 SemaphoreHandle_t g_mutex = nullptr;
 volatile bool g_paused = false;
 volatile bool g_reqWeather = true;
 volatile bool g_reqNews = true;
 volatile bool g_reqMarket = true;
-volatile bool g_reqSpotify = false;
-volatile bool g_reqSpotifyCmd = false;
-volatile uint8_t g_spCmd = 0;
-volatile int g_spCmdVol = 70;
 volatile bool g_reqTime = true;
 volatile uint8_t g_targetTopic = 0;
 volatile bool g_fetching = false;
-
-String g_spAccessToken;
-uint32_t g_spTokenExpMs = 0;
 
 const char* const NEWS_URLS[static_cast<size_t>(NewsTopic::COUNT)] = {
     "https://news.google.com/rss?hl=tr&gl=TR&ceid=TR:tr",
@@ -489,166 +481,6 @@ bool fetchMarket() {
     return false;
 }
 
-bool ensureSpotifyToken() {
-    if (g_spAccessToken.length() > 0 && millis() < g_spTokenExpMs) {
-        return true;
-    }
-
-    char cid[40], csec[40], ref[160];
-    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
-        strlcpy(cid, g_cfg.spClientId, sizeof(cid));
-        strlcpy(csec, g_cfg.spClientSecret, sizeof(csec));
-        strlcpy(ref, g_cfg.spRefreshToken, sizeof(ref));
-        xSemaphoreGive(g_mutex);
-    } else {
-        return false;
-    }
-
-    if (cid[0] == '\0' || csec[0] == '\0' || ref[0] == '\0') {
-        if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(50))) {
-            g_spotify.spotifyValid = false;
-            strlcpy(g_spotify.title, "Spotify Wi-Fi Ayarlanmadı", sizeof(g_spotify.title));
-            strlcpy(g_spotify.artist, "Web UI'dan API veya BT Hoparlör kullan", sizeof(g_spotify.artist));
-            strlcpy(g_spotify.statusMsg, "Token Eksik", sizeof(g_spotify.statusMsg));
-            g_spotify.updatedAtMs = millis();
-            xSemaphoreGive(g_mutex);
-        }
-        return false;
-    }
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
-    http.useHTTP10(true);
-    http.setTimeout(8000);
-    if (!http.begin(client, "https://accounts.spotify.com/api/token")) return false;
-
-    String creds = String(cid) + ":" + String(csec);
-    String authHdr = "Basic " + base64::encode(creds);
-    http.addHeader("Authorization", authHdr);
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-    String body = String("grant_type=refresh_token&refresh_token=") + ref;
-
-    const int code = http.POST(body);
-    if (code != HTTP_CODE_OK) {
-        http.end();
-        return false;
-    }
-
-    JsonDocument doc;
-    if (!deserializeJson(doc, http.getStream())) {
-        const char* tok = doc["access_token"] | "";
-        const uint32_t expSec = doc["expires_in"] | 3600;
-        if (tok[0] != '\0') {
-            g_spAccessToken = tok;
-            g_spTokenExpMs = millis() + (expSec > 120 ? (expSec - 60) * 1000UL : 300000UL);
-        }
-    }
-    http.end();
-    return g_spAccessToken.length() > 0;
-}
-
-bool fetchSpotifyNowPlaying() {
-    if (WiFi.status() != WL_CONNECTED) return false;
-    if (!ensureSpotifyToken()) return false;
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
-    http.useHTTP10(true);
-    http.setTimeout(8000);
-    if (!http.begin(client, "https://api.spotify.com/v1/me/player/currently-playing")) return false;
-    http.addHeader("Authorization", String("Bearer ") + g_spAccessToken);
-
-    const int code = http.GET();
-    if (code == 204) {
-        http.end();
-        if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(50))) {
-            g_spotify.spotifyValid = true;
-            g_spotify.isPlaying = false;
-            g_spotify.sourceMode = 1;
-            strlcpy(g_spotify.title, "Spotify'da Çalan Şarkı Yok", sizeof(g_spotify.title));
-            strlcpy(g_spotify.artist, "Cihazınızda çalmaya başlayın", sizeof(g_spotify.artist));
-            g_spotify.album[0] = '\0';
-            strlcpy(g_spotify.statusMsg, "Spotify Bağlı (Boşta)", sizeof(g_spotify.statusMsg));
-            g_spotify.updatedAtMs = millis();
-            xSemaphoreGive(g_mutex);
-        }
-        return true;
-    }
-    if (code == 401) {
-        g_spAccessToken = "";
-        http.end();
-        return false;
-    }
-    if (code != HTTP_CODE_OK) {
-        http.end();
-        return false;
-    }
-
-    JsonDocument filter;
-    filter["is_playing"] = true;
-    filter["progress_ms"] = true;
-    filter["item"]["name"] = true;
-    filter["item"]["duration_ms"] = true;
-    filter["item"]["album"]["name"] = true;
-    filter["item"]["artists"][0]["name"] = true;
-
-    JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
-    http.end();
-    if (err) return false;
-
-    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
-        g_spotify.spotifyValid = true;
-        g_spotify.sourceMode = 1;
-        g_spotify.isPlaying = doc["is_playing"] | false;
-        g_spotify.progressMs = doc["progress_ms"] | 0UL;
-        g_spotify.durationMs = doc["item"]["duration_ms"] | 0UL;
-        strlcpy(g_spotify.title, doc["item"]["name"] | "Bilinmeyen Şarkı", sizeof(g_spotify.title));
-        strlcpy(g_spotify.artist, doc["item"]["artists"][0]["name"] | "", sizeof(g_spotify.artist));
-        strlcpy(g_spotify.album, doc["item"]["album"]["name"] | "", sizeof(g_spotify.album));
-        strlcpy(g_spotify.statusMsg, g_spotify.isPlaying ? "Spotify Wi-Fi • Çalıyor" : "Spotify Wi-Fi • Duraklatıldı",
-                sizeof(g_spotify.statusMsg));
-        g_spotify.updatedAtMs = millis();
-        xSemaphoreGive(g_mutex);
-    }
-    return true;
-}
-
-void execSpotifyCommand(SpotifyCmd cmd, int volPct) {
-    if (!ensureSpotifyToken()) return;
-
-    const char* method = "POST";
-    char url[96];
-    if (cmd == SpotifyCmd::PLAY_PAUSE) {
-        method = "PUT";
-        snprintf(url, sizeof(url), "https://api.spotify.com/v1/me/player/%s",
-                 g_spotify.isPlaying ? "pause" : "play");
-    } else if (cmd == SpotifyCmd::NEXT) {
-        strlcpy(url, "https://api.spotify.com/v1/me/player/next", sizeof(url));
-    } else if (cmd == SpotifyCmd::PREV) {
-        strlcpy(url, "https://api.spotify.com/v1/me/player/previous", sizeof(url));
-    } else {
-        method = "PUT";
-        snprintf(url, sizeof(url), "https://api.spotify.com/v1/me/player/volume?volume_percent=%d",
-                 constrain(volPct, 0, 100));
-    }
-
-    WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
-    http.useHTTP10(true);
-    http.setTimeout(6000);
-    if (http.begin(client, url)) {
-        http.addHeader("Authorization", String("Bearer ") + g_spAccessToken);
-        http.addHeader("Content-Length", "0");
-        http.sendRequest(method);
-        http.end();
-    }
-    fetchSpotifyNowPlaying();
-}
-
 void netTask(void* param) {
     (void)param;
     uint32_t lastWeatherMs = 0;
@@ -674,43 +506,32 @@ void netTask(void* param) {
                 configTzTime(DEFAULT_TZ, NTP_SERVER_1, NTP_SERVER_2);
             }
 
-            if (g_reqSpotifyCmd) {
-                g_reqSpotifyCmd = false;
-                g_fetching = true;
-                execSpotifyCommand(static_cast<SpotifyCmd>(g_spCmd), g_spCmdVol);
-                g_fetching = false;
-            }
+            // Avoid concurrent TLS handshakes while MP3 Internet Radio is streaming (saves RAM & prevents stutter)
+            if (!radioIsPlaying()) {
+                if (g_reqWeather || (lastWeatherMs != 0 && (now - lastWeatherMs) >= WEATHER_REFRESH_MS)) {
+                    g_reqWeather = false;
+                    g_fetching = true;
+                    if (fetchWeather()) lastWeatherMs = millis();
+                    else if (lastWeatherMs == 0) lastWeatherMs = millis() - WEATHER_REFRESH_MS + 30000UL;
+                    g_fetching = false;
+                }
 
-            if (g_reqSpotify) {
-                g_reqSpotify = false;
-                g_fetching = true;
-                fetchSpotifyNowPlaying();
-                g_fetching = false;
-            }
+                if (g_reqMarket || (lastMarketMs != 0 && (now - lastMarketMs) >= MARKET_REFRESH_MS)) {
+                    g_reqMarket = false;
+                    g_fetching = true;
+                    if (fetchMarket()) lastMarketMs = millis();
+                    else if (lastMarketMs == 0) lastMarketMs = millis() - MARKET_REFRESH_MS + 30000UL;
+                    g_fetching = false;
+                }
 
-            if (g_reqWeather || (lastWeatherMs != 0 && (now - lastWeatherMs) >= WEATHER_REFRESH_MS)) {
-                g_reqWeather = false;
-                g_fetching = true;
-                if (fetchWeather()) lastWeatherMs = millis();
-                else if (lastWeatherMs == 0) lastWeatherMs = millis() - WEATHER_REFRESH_MS + 30000UL;
-                g_fetching = false;
-            }
-
-            if (g_reqMarket || (lastMarketMs != 0 && (now - lastMarketMs) >= MARKET_REFRESH_MS)) {
-                g_reqMarket = false;
-                g_fetching = true;
-                if (fetchMarket()) lastMarketMs = millis();
-                else if (lastMarketMs == 0) lastMarketMs = millis() - MARKET_REFRESH_MS + 30000UL;
-                g_fetching = false;
-            }
-
-            if (g_reqNews || (lastNewsMs != 0 && (now - lastNewsMs) >= NEWS_REFRESH_MS)) {
-                g_reqNews = false;
-                const uint8_t topic = g_targetTopic;
-                g_fetching = true;
-                if (fetchGoogleNews(topic)) lastNewsMs = millis();
-                else if (lastNewsMs == 0) lastNewsMs = millis() - NEWS_REFRESH_MS + 30000UL;
-                g_fetching = false;
+                if (g_reqNews || (lastNewsMs != 0 && (now - lastNewsMs) >= NEWS_REFRESH_MS)) {
+                    g_reqNews = false;
+                    const uint8_t topic = g_targetTopic;
+                    g_fetching = true;
+                    if (fetchGoogleNews(topic)) lastNewsMs = millis();
+                    else if (lastNewsMs == 0) lastNewsMs = millis() - NEWS_REFRESH_MS + 30000UL;
+                    g_fetching = false;
+                }
             }
         }
 
@@ -731,7 +552,6 @@ void netUpdateConfig(const DeviceConfig& cfg) {
     if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(100))) {
         g_cfg = cfg;
         g_targetTopic = cfg.newsTopic;
-        g_spAccessToken = "";
         xSemaphoreGive(g_mutex);
     }
 }
@@ -744,14 +564,7 @@ void netPause(bool paused) { g_paused = paused; }
 void netRequestWeatherRefresh() { g_reqWeather = true; }
 void netRequestNewsRefresh(uint8_t topicIdx) { g_targetTopic = topicIdx; g_reqNews = true; }
 void netRequestMarketRefresh() { g_reqMarket = true; }
-void netRequestSpotifyRefresh() { g_reqSpotify = true; }
 void netRequestTimeSync() { g_reqTime = true; }
-
-void netSendSpotifyCmd(SpotifyCmd cmd, int volPct) {
-    g_spCmd = static_cast<uint8_t>(cmd);
-    g_spCmdVol = volPct;
-    g_reqSpotifyCmd = true;
-}
 
 bool netCopyWeather(WeatherData& out) {
     if (!g_mutex) return false;
@@ -777,16 +590,6 @@ bool netCopyMarket(MarketData& out) {
     if (!g_mutex) return false;
     if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(25))) {
         out = g_market;
-        xSemaphoreGive(g_mutex);
-        return true;
-    }
-    return false;
-}
-
-bool netCopySpotify(MusicState& out) {
-    if (!g_mutex) return false;
-    if (xSemaphoreTake(g_mutex, pdMS_TO_TICKS(25))) {
-        out = g_spotify;
         xSemaphoreGive(g_mutex);
         return true;
     }

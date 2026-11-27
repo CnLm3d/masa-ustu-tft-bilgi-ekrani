@@ -1,7 +1,8 @@
-#include "audio_bt.h"
+#include "audio_radio.h"
 #include "config.h"
 #include "fonts/SegoeUI14TR.h"
 #include "fonts/SegoeUIBold18TR.h"
+#include "led_strip.h"
 #include "net_services.h"
 #include "storage_portal.h"
 #include "touch_input.h"
@@ -28,7 +29,7 @@ WeatherData g_wx{};
 NewsData g_news{};
 MarketData g_mk{};
 PomodoroState g_pomo{};
-MusicState g_music{};
+RadioState g_radio{};
 
 PageId g_page = PageId::CLOCK;
 int8_t g_alarmEditIdx = -1;
@@ -38,15 +39,13 @@ uint32_t g_lastUiPollMs = 0;
 uint32_t g_lastWxMs = 0;
 uint32_t g_lastNewsMs = 0;
 uint32_t g_lastMkMs = 0;
-uint32_t g_lastSpotifyPollMs = 0;
-uint32_t g_lastMusicUpdatedMs = 0;
+uint32_t g_lastRadioUpdatedMs = 0;
 uint32_t g_lastChimeMs = 0;
 int g_lastWorldMin = -1;
 int g_lastNightMin = -1;
 bool g_lastFetching = false;
 bool g_dirty = true;
 bool g_webStarted = false;
-bool g_btSpeakerMode = false;
 bool g_draggingSlider = false;
 uint8_t g_sliderPreviewIdx = 0;
 uint32_t g_autoCycleLastMs = 0;
@@ -70,7 +69,7 @@ void showSplash(const char* subText) {
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString("ESP32 DeskHub v4.0", SCREEN_W / 2, SY(102));
+    tft.drawString("ESP32 DeskHub v5.0", SCREEN_W / 2, SY(102));
     tft.unloadFont();
 
     tft.loadFont(SegoeUI14TR);
@@ -78,52 +77,6 @@ void showSplash(const char* subText) {
     tft.setTextColor(COL_MUTED, COL_SURFACE);
     tft.drawString(subText, SCREEN_W / 2, SY(138));
     tft.unloadFont();
-}
-
-void switchToBtMode() {
-    if (g_btSpeakerMode || !audioBtSupported()) return;
-    g_btSpeakerMode = true;
-    g_music.btActive = true;
-    g_music.sourceMode = 0;
-    g_music.volume = g_cfg.volume;
-    strlcpy(g_music.statusMsg, "Bluetooth baslatiliyor...", sizeof(g_music.statusMsg));
-    if (g_page == PageId::MUSIC) {
-        uiMusicDraw(tft, g_music, true, false);
-    }
-
-    webUiStop();
-    g_webStarted = false;
-    netPause(true);
-    WiFi.disconnect(false);
-    WiFi.mode(WIFI_OFF);
-    delay(80);
-
-    audioBtStart(g_cfg.btName, g_cfg.volume);
-    audioBtCopyState(g_music);
-    g_dirty = true;
-}
-
-void switchToWifiMode() {
-    if (!g_btSpeakerMode) return;
-    g_btSpeakerMode = false;
-    g_music.btActive = false;
-    g_music.btConnected = false;
-    g_music.sourceMode = 1;
-    g_music.volume = g_cfg.volume;
-    strlcpy(g_music.statusMsg, "Wi-Fi yeniden baglaniyor...", sizeof(g_music.statusMsg));
-    if (g_page == PageId::MUSIC) {
-        uiMusicDraw(tft, g_music, audioBtSupported(), true);
-    }
-
-    audioBtStop();
-    delay(80);
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(g_cfg.ssid, g_cfg.pass);
-    netPause(false);
-    netRequestSpotifyRefresh();
-    g_lastSpotifyPollMs = millis();
-    g_dirty = true;
 }
 
 void connectWifiWithUi() {
@@ -154,7 +107,9 @@ void connectWifiWithUi() {
 }
 
 void onOtaProgress(uint8_t pct, const char* msg) {
+    radioStop();
     uiDrawOtaScreen(tft, pct, msg);
+    ledShowOtaProgress(pct);
 }
 
 void enterPage(PageId nextPage) {
@@ -174,13 +129,7 @@ void enterPage(PageId nextPage) {
     } else if (g_page == PageId::NIGHT) {
         g_lastNightMin = -1;
     } else if (g_page == PageId::MUSIC) {
-        g_music.volume = g_cfg.volume;
-        g_music.btActive = g_btSpeakerMode;
-        g_music.sourceMode = g_btSpeakerMode ? 0 : 1;
-        if (!g_btSpeakerMode) {
-            g_lastSpotifyPollMs = millis();
-            netRequestSpotifyRefresh();
-        }
+        radioCopyState(g_radio);
     }
 }
 
@@ -207,6 +156,7 @@ void stopBuzzer() {
 
 void checkAlarmsAndNight(uint32_t now) {
     if (g_snoozeIdx >= 0 && now >= g_snoozeUntilMs) {
+        radioStop();
         g_ringingIdx = g_snoozeIdx;
         g_snoozeIdx = -1;
         g_ringInvert = false;
@@ -224,6 +174,7 @@ void checkAlarmsAndNight(uint32_t now) {
             const AlarmItem& a = g_cfg.alarms[i];
             if (a.enabled && a.hour == ti.tm_hour && a.minute == ti.tm_min &&
                 alarmMatchesDay(a.repeatMode, ti.tm_wday)) {
+                radioStop();
                 g_ringingIdx = i;
                 g_ringInvert = false;
                 uiAlarmRingingDraw(tft, a, false);
@@ -279,7 +230,7 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
     if (g_page == PageId::SETTINGS) {
         if (ev.type != TouchEventType::TAP && ev.type != TouchEventType::DRAG_END) return;
         if (RECT_SET_WIFI.contains(ev.x, ev.y)) {
-            if (g_btSpeakerMode) switchToWifiMode();
+            radioStop();
             runSetupPortal(tft, g_cfg);
         } else if (RECT_SET_CAL.contains(ev.x, ev.y)) {
             runTouchCalibration(tft);
@@ -355,8 +306,8 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
             g_pomo.remainingSec = g_pomo.totalSec;
             g_dirty = true;
         } else if (g_page == PageId::MUSIC) {
-            if (g_btSpeakerMode) switchToWifiMode();
-            else switchToBtMode();
+            radioPlay(g_cfg.radioActiveIdx);
+            g_dirty = true;
         } else {
             enterPage(PageId::SETTINGS);
         }
@@ -400,37 +351,32 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
             netRequestMarketRefresh();
         }
     } else if (g_page == PageId::MUSIC) {
-        if (RECT_MUS_MODE_BT.contains(ev.x, ev.y)) {
-            switchToBtMode();
-        } else if (RECT_MUS_MODE_WIFI.contains(ev.x, ev.y)) {
-            switchToWifiMode();
-        } else if (RECT_MUS_PREV.contains(ev.x, ev.y)) {
-            if (g_btSpeakerMode) audioBtSendCmd(BtMediaCmd::PREV);
-            else netSendSpotifyCmd(SpotifyCmd::PREV, g_cfg.volume);
-        } else if (RECT_MUS_PLAY.contains(ev.x, ev.y)) {
-            if (g_btSpeakerMode) {
-                audioBtSendCmd(BtMediaCmd::PLAY_PAUSE);
-            } else {
-                g_music.isPlaying = !g_music.isPlaying;
-                netSendSpotifyCmd(SpotifyCmd::PLAY_PAUSE, g_cfg.volume);
+        if (RECT_MUS_STATION.contains(ev.x, ev.y) || RECT_MUS_NEXT.contains(ev.x, ev.y)) {
+            if (g_cfg.radioStationCount > 0) {
+                g_cfg.radioActiveIdx = (g_cfg.radioActiveIdx + 1) % g_cfg.radioStationCount;
+                saveRadioStations(g_cfg);
             }
+            radioNext();
             g_dirty = true;
-        } else if (RECT_MUS_NEXT.contains(ev.x, ev.y)) {
-            if (g_btSpeakerMode) audioBtSendCmd(BtMediaCmd::NEXT);
-            else netSendSpotifyCmd(SpotifyCmd::NEXT, g_cfg.volume);
+        } else if (RECT_MUS_PREV.contains(ev.x, ev.y)) {
+            if (g_cfg.radioStationCount > 0) {
+                g_cfg.radioActiveIdx = (g_cfg.radioActiveIdx + g_cfg.radioStationCount - 1) % g_cfg.radioStationCount;
+                saveRadioStations(g_cfg);
+            }
+            radioPrev();
+            g_dirty = true;
+        } else if (RECT_MUS_PLAY.contains(ev.x, ev.y)) {
+            radioToggle();
+            g_dirty = true;
         } else if (RECT_MUS_VOLDN.contains(ev.x, ev.y)) {
             g_cfg.volume = (g_cfg.volume >= 10) ? static_cast<uint8_t>(g_cfg.volume - 10) : 0;
-            g_music.volume = g_cfg.volume;
             saveConfig(g_cfg);
-            if (g_btSpeakerMode) audioBtSetVolume(g_cfg.volume);
-            else netSendSpotifyCmd(SpotifyCmd::SET_VOLUME, g_cfg.volume);
+            radioSetVolume(g_cfg.volume);
             g_dirty = true;
         } else if (RECT_MUS_VOLUP.contains(ev.x, ev.y)) {
             g_cfg.volume = (g_cfg.volume <= 90) ? static_cast<uint8_t>(g_cfg.volume + 10) : 100;
-            g_music.volume = g_cfg.volume;
             saveConfig(g_cfg);
-            if (g_btSpeakerMode) audioBtSetVolume(g_cfg.volume);
-            else netSendSpotifyCmd(SpotifyCmd::SET_VOLUME, g_cfg.volume);
+            radioSetVolume(g_cfg.volume);
             g_dirty = true;
         }
     } else if (g_page == PageId::WEATHER) {
@@ -519,6 +465,10 @@ void handleWebAction(const WebAction& act) {
         if (g_page == PageId::CLOCK || g_page == PageId::MENU || g_page == PageId::SETTINGS) {
             enterPage(g_page);
         }
+    } else if (act.type == WebActionType::RADIO_UPDATED) {
+        if (g_page == PageId::MUSIC) g_dirty = true;
+    } else if (act.type == WebActionType::LED_UPDATED) {
+        ledUpdateConfig(g_cfg);
     } else if (act.type == WebActionType::REFRESH_ALL) {
         netRequestTimeSync();
         netRequestWeatherRefresh();
@@ -529,6 +479,7 @@ void handleWebAction(const WebAction& act) {
         runTouchCalibration(tft);
         enterPage(g_page);
     } else if (act.type == WebActionType::START_PORTAL) {
+        radioStop();
         runSetupPortal(tft, g_cfg);
     }
 }
@@ -538,6 +489,7 @@ void setup() {
     Serial.begin(115200);
     loadConfig(g_cfg);
     uiSetLightTheme(g_cfg.lightTheme);
+    ledInit(g_cfg);
     webUiSetOtaCallback(onOtaProgress);
 
     tft.init();
@@ -558,6 +510,8 @@ void setup() {
     connectWifiWithUi();
     netInit(g_cfg);
     netStartTask();
+    radioInit(g_cfg);
+    radioStartTask();
     uiPomodoroInit(g_pomo);
 
     if (WiFi.status() == WL_CONNECTED) {
@@ -571,7 +525,7 @@ void setup() {
 void loop() {
     const uint32_t now = millis();
 
-    if (!g_webStarted && !g_btSpeakerMode && WiFi.status() == WL_CONNECTED) {
+    if (!g_webStarted && WiFi.status() == WL_CONNECTED) {
         webUiStart(g_cfg);
         g_webStarted = true;
     }
@@ -580,7 +534,10 @@ void loop() {
 
     handleTouchEvent(touchPoll(tft), now);
 
-    // Alarm ringing flash, PCM5102A chime & optional buzzer pulse
+    // 5x WS2812B LED status & visualizer update
+    ledTick(now, g_cfg, g_page, g_ringingIdx >= 0, g_pomo, g_radio, g_wx, g_mk, netIsWifiConnected());
+
+    // Alarm ringing flash & PCM5102A chime / optional buzzer
     if (g_ringingIdx >= 0) {
         if ((now - g_lastRingFlashMs) >= 550) {
             g_lastRingFlashMs = now;
@@ -589,7 +546,7 @@ void loop() {
             if (g_cfg.buzzerPin > 0 && g_ringInvert) {
                 tone(g_cfg.buzzerPin, 2200, 200);
             }
-            if (!g_btSpeakerMode && (now - g_lastChimeMs) >= 1800) {
+            if ((now - g_lastChimeMs) >= 1800) {
                 g_lastChimeMs = now;
                 audioPlayChime();
             }
@@ -607,13 +564,7 @@ void loop() {
         netCopyWeather(g_wx);
         netCopyNews(g_news);
         netCopyMarket(g_mk);
-        if (g_btSpeakerMode) {
-            audioBtCopyState(g_music);
-        } else {
-            netCopySpotify(g_music);
-            g_music.volume = g_cfg.volume;
-            g_music.btActive = false;
-        }
+        radioCopyState(g_radio);
         const bool fetching = netIsFetching();
 
         checkAlarmsAndNight(now);
@@ -630,8 +581,8 @@ void loop() {
             g_lastMkMs = g_mk.updatedAtMs;
             if (g_page == PageId::MARKET) g_dirty = true;
         }
-        if (g_music.updatedAtMs != g_lastMusicUpdatedMs) {
-            g_lastMusicUpdatedMs = g_music.updatedAtMs;
+        if (g_radio.updatedAtMs != g_lastRadioUpdatedMs) {
+            g_lastRadioUpdatedMs = g_radio.updatedAtMs;
             if (g_page == PageId::MUSIC) g_dirty = true;
         }
         if (fetching != g_lastFetching) {
@@ -641,7 +592,7 @@ void loop() {
             }
         }
 
-        if (!g_draggingSlider && g_cfg.autoCycle && !g_btSpeakerMode && g_ringingIdx < 0 &&
+        if (!g_draggingSlider && g_cfg.autoCycle && g_ringingIdx < 0 &&
             (g_page == PageId::CLOCK || g_page == PageId::WEATHER || g_page == PageId::MARKET) &&
             (now - g_autoCycleLastMs) >= AUTO_CYCLE_MS) {
             g_autoCycleLastMs = now;
@@ -672,13 +623,8 @@ void loop() {
                 g_newsIdx = (g_newsIdx + 1) % g_news.count;
                 g_dirty = true;
             }
-        } else if (g_page == PageId::MUSIC) {
-            if (!g_btSpeakerMode && (now - g_lastSpotifyPollMs) >= SPOTIFY_REFRESH_MS) {
-                g_lastSpotifyPollMs = now;
-                netRequestSpotifyRefresh();
-            } else if (g_btSpeakerMode && !g_dirty) {
-                uiMusicDrawMeter(tft, g_music);
-            }
+        } else if (g_page == PageId::MUSIC && g_radio.isPlaying && !g_dirty) {
+            uiMusicDrawMeter(tft, g_radio);
         }
 
         if (!g_draggingSlider && g_dirty) {
@@ -690,7 +636,7 @@ void loop() {
                 case PageId::ALARM:    uiAlarmDraw(tft, g_cfg, g_alarmEditIdx, fetching); break;
                 case PageId::NEWS:     uiNewsDraw(tft, g_news, g_newsIdx, fetching); break;
                 case PageId::POMODORO: uiPomodoroDraw(tft, g_pomo, fetching); break;
-                case PageId::MUSIC:    uiMusicDraw(tft, g_music, audioBtSupported(), !g_btSpeakerMode && fetching); break;
+                case PageId::MUSIC:    uiMusicDraw(tft, g_radio, fetching); break;
                 case PageId::MENU:     uiMenuDraw(tft, g_cfg); break;
                 case PageId::SETTINGS: uiSettingsDraw(tft, g_cfg); break;
                 case PageId::NIGHT:    uiNightDraw(tft, g_cfg, g_wx); break;
