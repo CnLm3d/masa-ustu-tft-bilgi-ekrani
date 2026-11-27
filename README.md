@@ -10,6 +10,9 @@
 
 **2.4" 320×240 (`TJCTM24024-SPI` ILI9341)** ve **Waveshare 4" 480×320 (`RPi LCD (A)` ILI9486 + XPT2046)** dokunmatik ekranlar, **PCM5102A I2S DAC** ile canlı **MP3 İnternet Radyosu**, **5× WS2812B adreslenebilir durum LED'i**, **Wi-Fi OTA güncelleme** ve **Aydınlık / Karanlık tema** destekli masaüstü bilgi ve ses istasyonu.
 
+> 🌐 **[İnteraktif Wiki, Adım Adım Devre Kurulum Animasyonu & Tek Tıkla USB Web Flasher → `cnlm3d.github.io/masa-ustu-tft-bilgi-ekrani`](https://cnlm3d.github.io/masa-ustu-tft-bilgi-ekrani/)**
+> Tarayıcıdan (Chrome/Edge) derleme yapmadan doğrudan USB üzerinden firmware yükleyebilir ve adım adım kablolama animasyonunu inceleyebilirsiniz.
+
 ![ESP32 DeskHub v5.0.1 Gerçek Donanım Galerisi](docs/media/v5_real_hardware_gallery.png)
 
 ---
@@ -110,6 +113,8 @@ flowchart LR
 ---
 
 ## Donanım Bağlantı Şeması
+
+![Adım Adım Devre Kurulum Animasyonu](docs/media/circuit_assembly_anim.gif)
 
 ![Donanım Bağlantı Şeması ve 5-LED Durum Haritası](docs/media/v5_wiring_and_led_map.png)
 
