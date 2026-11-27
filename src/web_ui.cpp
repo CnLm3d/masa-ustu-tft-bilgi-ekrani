@@ -2,6 +2,13 @@
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#ifndef HAS_WIFI_OTA
+#define HAS_WIFI_OTA 0
+#endif
+#if HAS_WIFI_OTA
+#include <ArduinoOTA.h>
+#include <Update.h>
+#endif
 #include "web_ui.h"
 #include "config.h"
 #include "net_services.h"
@@ -10,21 +17,28 @@
 namespace {
 WebServer g_web(80);
 DeviceConfig* g_cfgPtr = nullptr;
+OtaProgressCb g_otaCb = nullptr;
 bool g_started = false;
 bool g_routesRegistered = false;
 PageId g_activePage = PageId::CLOCK;
 WebAction g_pending{WebActionType::NONE, 0};
+#if HAS_WIFI_OTA
+size_t g_otaTotal = 0;
+size_t g_otaWritten = 0;
+uint8_t g_otaLastPct = 255;
+#endif
 
 const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ESP32 DeskHub v3.0 • Kontrol Paneli</title>
+<title>ESP32 DeskHub v4.0 • Kontrol Paneli</title>
 <style>
   :root{--bg:#0b0e14;--card:#141821;--in:#0d1118;--bd:#283040;--acc:#3893ff;--amb:#ffa400;--ok:#2dd264;--err:#fa3e3e;--gold:#f2c448;--tx:#f5f7fa;--mu:#8e95a2;}
+  :root[data-theme="light"]{--bg:#f3f6fa;--card:#ffffff;--in:#e8edf5;--bd:#c5cbd4;--acc:#1b72ff;--amb:#db8c00;--ok:#14a842;--err:#da2828;--gold:#b48800;--tx:#12171f;--mu:#585d66;}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:16px;}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:16px;transition:background .2s,color .2s;}
   .wrap{max-width:1120px;margin:0 auto;}
   .hdr{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 18px;margin-bottom:14px;}
   .hdr h1{margin:0;font-size:19px;color:var(--acc);}
@@ -35,10 +49,10 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   .card h2{margin:0 0 12px;font-size:16px;display:flex;justify-content:space-between;align-items:center;}
   .themes{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;}
   .tbtn{padding:12px 6px;border-radius:10px;border:1px solid var(--bd);background:var(--in);color:var(--tx);cursor:pointer;text-align:center;font-size:12px;font-weight:600;}
-  .tbtn.on{border-color:var(--amb);color:var(--amb);background:#24190a;}
+  .tbtn.on{border-color:var(--amb);color:var(--amb);background:rgba(255,164,0,0.14);}
   .pages{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
   .pbtn{padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--in);color:var(--tx);cursor:pointer;font-size:12px;font-weight:600;}
-  .pbtn.on{background:var(--acc);border-color:var(--acc);}
+  .pbtn.on{background:var(--acc);border-color:var(--acc);color:#fff;}
   label{display:block;font-size:12px;color:var(--mu);margin:10px 0 4px;}
   input,select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--in);color:var(--tx);font-size:13px;}
   .row{display:flex;gap:8px;align-items:center;}
@@ -57,7 +71,7 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <body>
 <div class="wrap">
   <div class="hdr">
-        <h1>ESP32 DeskHub v3.0 • Kontrol Paneli</h1>
+        <h1>ESP32 DeskHub v4.0 • Kontrol Paneli</h1>
     <div class="pills">
       <span class="pill" id="pIp">IP: ...</span>
       <span class="pill" id="pRssi">Wi-Fi: ...</span>
@@ -72,6 +86,10 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <label style="margin-top:14px;">Ekrandaki Aktif Sayfa</label>
       <div class="pages" id="pageList"></div>
       <div class="row" style="margin-top:10px;">
+        <button class="btn" id="btnLight" onclick="toggleUi('light')">Tema: Karanlık</button>
+        <button class="btn" id="btnCycle" onclick="toggleUi('cyc')">45sn Döngü: Kapalı</button>
+      </div>
+      <div class="row" style="margin-top:4px;">
         <button class="btn amb" onclick="doAct('refresh')">Verileri Şimdi Yenile</button>
         <button class="btn amb" onclick="doAct('calibrate')">Dokunmatik Kalibre</button>
       </div>
@@ -131,6 +149,17 @@ const char WEB_UI_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         <button class="btn amb" onclick="doAct('restart')">Yeniden Başlat</button>
       </div>
     </div>
+
+    <div class="card">
+      <h2>Wi-Fi ile Güncelleme (OTA)</h2>
+      <label>Derlenmiş Firmware (.bin) Dosyası</label>
+      <input type="file" id="otaFile" accept=".bin">
+      <div style="margin-top:10px;background:var(--in);border:1px solid var(--bd);border-radius:8px;height:14px;overflow:hidden;">
+        <div id="otaBar" style="height:100%;width:0%;background:var(--ok);transition:width .15s;"></div>
+      </div>
+      <div id="otaMsg" style="font-size:12px;color:var(--mu);margin-top:6px;">Hazır (deskhub.local üzerinden yükle)</div>
+      <button class="btn" id="otaBtn" onclick="uploadOta()">Wi-Fi Üzerinden Güncelle</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast">Kaydedildi!</div>
@@ -148,6 +177,13 @@ async function load(){
   document.getElementById('pRssi').textContent='Wi-Fi: '+state.rssi+' dBm';
   document.getElementById('pHeap').textContent='Boş RAM: '+Math.round(state.heap/1024)+' KB';
   document.getElementById('curThemeLbl').textContent=THEMES[state.theme]||'';
+  document.documentElement.setAttribute('data-theme',state.light?'light':'dark');
+  document.getElementById('btnLight').textContent=state.light?'Tema: Aydınlık Mod':'Tema: Karanlık Mod';
+  const bc=document.getElementById('btnCycle');
+  bc.textContent=state.cyc?'45sn Döngü: AÇIK':'45sn Döngü: KAPALI';
+  bc.className='btn'+(state.cyc?' ok':'');
+  const ob=document.getElementById('otaBtn');
+  if(!state.otaEn){ob.disabled=true;ob.style.opacity='0.5';document.getElementById('otaMsg').textContent='BT Hoparlör (huge_app) derlemesinde OTA kapalı.';}
 
   const tl=document.getElementById('themeList'); tl.innerHTML='';
   THEMES.forEach((n,i)=>{
@@ -209,6 +245,25 @@ async function load(){
 async function setTheme(i){await fetch('/api/theme?id='+i,{method:'POST'});toast('Tema değiştirildi');load();}
 async function setPage(id){await fetch('/api/page?id='+id,{method:'POST'});toast('Sayfa değiştirildi');load();}
 async function doAct(cmd){await fetch('/api/action?cmd='+cmd,{method:'POST'});toast('Komut gönderildi');}
+async function toggleUi(k){
+  const v=k==='light'?(state&&state.light?0:1):(state&&state.cyc?0:1);
+  await fetch('/api/ui?'+k+'='+v,{method:'POST'});
+  toast('Güncellendi');load();
+}
+function uploadOta(){
+  const inp=document.getElementById('otaFile');
+  if(!inp.files||!inp.files.length){toast('Önce .bin dosyası seçin');return;}
+  const f=inp.files[0];
+  const bar=document.getElementById('otaBar'),msg=document.getElementById('otaMsg'),btn=document.getElementById('otaBtn');
+  btn.disabled=true; msg.textContent='Yükleniyor: '+f.name;
+  const fd=new FormData(); fd.append('firmware',f,f.name);
+  const x=new XMLHttpRequest();
+  x.open('POST','/api/ota?size='+f.size,true);
+  x.upload.onprogress=(e)=>{if(e.lengthComputable){const p=Math.round(e.loaded*100/e.total);bar.style.width=p+'%';msg.textContent='Yükleniyor %'+p;}};
+  x.onload=()=>{btn.disabled=false;if(x.status===200){bar.style.width='100%';msg.textContent='Başarılı! ESP32 yeniden başlıyor...';toast('Güncellendi! Yeniden başlatılıyor');setTimeout(()=>location.reload(),7000);}else{msg.textContent='Hata ('+x.status+'): '+x.responseText;}};
+  x.onerror=()=>{btn.disabled=false;msg.textContent='Bağlantı kesildi / OTA hatası';};
+  x.send(fd);
+}
 
 async function saveAll(){
   const body={
@@ -256,6 +311,9 @@ void handleState() {
     doc["heap"] = ESP.getFreeHeap();
     doc["theme"] = g_cfgPtr->clockTheme;
     doc["page"] = static_cast<uint8_t>(g_activePage);
+    doc["light"] = g_cfgPtr->lightTheme;
+    doc["cyc"] = g_cfgPtr->autoCycle;
+    doc["otaEn"] = (HAS_WIFI_OTA != 0);
     doc["city"] = g_cfgPtr->city;
     doc["lat"] = g_cfgPtr->lat;
     doc["lon"] = g_cfgPtr->lon;
@@ -392,7 +450,69 @@ void handleAction() {
     }
     g_web.send(200, "text/plain", "OK");
 }
+
+void handleUiQuick() {
+    if (!g_cfgPtr) return;
+    if (g_web.hasArg("light")) {
+        g_cfgPtr->lightTheme = (g_web.arg("light").toInt() != 0);
+        saveConfig(*g_cfgPtr);
+        g_pending = {WebActionType::APPLY_UI_THEME, static_cast<uint8_t>(g_cfgPtr->lightTheme ? 1 : 0)};
+    }
+    if (g_web.hasArg("cyc")) {
+        g_cfgPtr->autoCycle = (g_web.arg("cyc").toInt() != 0);
+        saveConfig(*g_cfgPtr);
+        g_pending = {WebActionType::CONFIG_UPDATED, 0};
+    }
+    g_web.send(200, "text/plain", "OK");
+}
+
+#if HAS_WIFI_OTA
+void handleOtaUpload() {
+    HTTPUpload& up = g_web.upload();
+    if (up.status == UPLOAD_FILE_START) {
+        netPause(true);
+        g_otaTotal = g_web.hasArg("size") ? static_cast<size_t>(g_web.arg("size").toInt()) : 0;
+        g_otaWritten = 0;
+        g_otaLastPct = 255;
+        if (g_otaCb) g_otaCb(0, "Güncelleme başlıyor...");
+        const size_t space = (g_otaTotal > 0) ? g_otaTotal : UPDATE_SIZE_UNKNOWN;
+        if (!Update.begin(space, U_FLASH)) {
+            if (g_otaCb) g_otaCb(0, "OTA yer yok (USB gerekir)");
+        }
+    } else if (up.status == UPLOAD_FILE_WRITE) {
+        if (Update.isRunning()) {
+            if (Update.write(up.buf, up.currentSize) != up.currentSize) {
+                Update.abort();
+                if (g_otaCb) g_otaCb(0, "Yazma hatası!");
+            } else {
+                g_otaWritten += up.currentSize;
+                uint8_t pct = (g_otaTotal > 0)
+                    ? static_cast<uint8_t>(min<size_t>(99, (g_otaWritten * 100ULL) / g_otaTotal))
+                    : static_cast<uint8_t>(min<size_t>(95, g_otaWritten / 18000U));
+                if (pct != g_otaLastPct && (g_otaLastPct == 255 || pct - g_otaLastPct >= 4)) {
+                    g_otaLastPct = pct;
+                    if (g_otaCb) g_otaCb(pct, "Web UI OTA yükleniyor...");
+                }
+            }
+        }
+    } else if (up.status == UPLOAD_FILE_END) {
+        if (Update.end(true)) {
+            if (g_otaCb) g_otaCb(100, "Tamamlandı! Yeniden başlıyor...");
+        } else {
+            if (g_otaCb) g_otaCb(0, "Doğrulama hatası!");
+        }
+    } else if (up.status == UPLOAD_FILE_ABORTED) {
+        Update.abort();
+        netPause(false);
+        if (g_otaCb) g_otaCb(0, "Güncelleme iptal edildi");
+    }
+}
+#endif
 } // namespace
+
+void webUiSetOtaCallback(OtaProgressCb cb) {
+    g_otaCb = cb;
+}
 
 void webUiStart(DeviceConfig& cfg) {
     g_cfgPtr = &cfg;
@@ -404,11 +524,49 @@ void webUiStart(DeviceConfig& cfg) {
         g_web.on("/api/state", HTTP_GET, handleState);
         g_web.on("/api/theme", HTTP_POST, handleTheme);
         g_web.on("/api/page", HTTP_POST, handlePage);
+        g_web.on("/api/ui", HTTP_POST, handleUiQuick);
         g_web.on("/api/config", HTTP_POST, handleConfigPost);
         g_web.on("/api/action", HTTP_POST, handleAction);
+#if HAS_WIFI_OTA
+        g_web.on("/api/ota", HTTP_POST,
+                 []() {
+                     const bool ok = !Update.hasError();
+                     g_web.send(ok ? 200 : 500, "text/plain", ok ? "OK" : "FAIL");
+                     if (ok) {
+                         delay(400);
+                         ESP.restart();
+                     } else {
+                         netPause(false);
+                     }
+                 },
+                 handleOtaUpload);
+#endif
         g_routesRegistered = true;
     }
     g_web.begin();
+#if HAS_WIFI_OTA
+    ArduinoOTA.setHostname(MDNS_HOSTNAME);
+    ArduinoOTA.onStart([]() {
+        netPause(true);
+        if (g_otaCb) g_otaCb(0, "PlatformIO OTA başlıyor...");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        if (total == 0) return;
+        const uint8_t pct = static_cast<uint8_t>((progress * 100ULL) / total);
+        if (pct != g_otaLastPct && (g_otaLastPct == 255 || pct == 100 || pct - g_otaLastPct >= 4)) {
+            g_otaLastPct = pct;
+            if (g_otaCb) g_otaCb(pct, "PlatformIO OTA yükleniyor...");
+        }
+    });
+    ArduinoOTA.onEnd([]() {
+        if (g_otaCb) g_otaCb(100, "Tamamlandı! Yeniden başlıyor...");
+    });
+    ArduinoOTA.onError([](ota_error_t) {
+        netPause(false);
+        if (g_otaCb) g_otaCb(0, "ArduinoOTA hatası!");
+    });
+    ArduinoOTA.begin();
+#endif
     g_started = true;
 }
 
@@ -424,6 +582,9 @@ void webUiSetActivePage(PageId page) { g_activePage = page; }
 void webUiLoop() {
     if (g_started) {
         g_web.handleClient();
+#if HAS_WIFI_OTA
+        ArduinoOTA.handle();
+#endif
     }
 }
 

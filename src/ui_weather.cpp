@@ -46,7 +46,7 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.drawString("Yenilemek için karta dokunun", SCREEN_W / 2, SY(132));
         tft.unloadFont();
 
-        drawBottomNav(tft, 3);
+        drawBottomNav(tft, 1);
         return;
     }
 
@@ -120,5 +120,5 @@ void uiWeatherDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx
         tft.unloadFont();
     }
 
-    drawBottomNav(tft, 3);
+    drawBottomNav(tft, 1);
 }

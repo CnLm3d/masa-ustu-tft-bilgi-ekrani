@@ -47,6 +47,9 @@ bool g_lastFetching = false;
 bool g_dirty = true;
 bool g_webStarted = false;
 bool g_btSpeakerMode = false;
+bool g_draggingSlider = false;
+uint8_t g_sliderPreviewIdx = 0;
+uint32_t g_autoCycleLastMs = 0;
 
 // Alarm ringing & snooze state
 int8_t g_ringingIdx = -1;
@@ -67,7 +70,7 @@ void showSplash(const char* subText) {
     tft.loadFont(SegoeUIBold18TR);
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(COL_ACCENT, COL_SURFACE);
-    tft.drawString("ESP32 DeskHub v3.0", SCREEN_W / 2, SY(102));
+    tft.drawString("ESP32 DeskHub v4.0", SCREEN_W / 2, SY(102));
     tft.unloadFont();
 
     tft.loadFont(SegoeUI14TR);
@@ -150,9 +153,15 @@ void connectWifiWithUi() {
     }
 }
 
+void onOtaProgress(uint8_t pct, const char* msg) {
+    uiDrawOtaScreen(tft, pct, msg);
+}
+
 void enterPage(PageId nextPage) {
     g_page = nextPage;
     g_alarmEditIdx = -1;
+    g_draggingSlider = false;
+    g_autoCycleLastMs = millis();
     g_dirty = true;
     webUiSetActivePage(g_page);
     if (g_page == PageId::CLOCK) {
@@ -239,10 +248,11 @@ void checkAlarmsAndNight(uint32_t now) {
 
 void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
     if (ev.type == TouchEventType::NONE) return;
+    g_autoCycleLastMs = now;
 
     // 1) Ringing alarm has highest priority
     if (g_ringingIdx >= 0) {
-        if (ev.type == TouchEventType::TAP) {
+        if (ev.type == TouchEventType::TAP || ev.type == TouchEventType::DRAG_END) {
             if (RECT_RING_STOP.contains(ev.x, ev.y)) {
                 stopBuzzer();
                 g_ringingIdx = -1;
@@ -265,14 +275,19 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
         return;
     }
 
-    // 3) Settings sub-page
+    // 3) Settings sub-page (does not use bottom slider)
     if (g_page == PageId::SETTINGS) {
-        if (ev.type != TouchEventType::TAP) return;
+        if (ev.type != TouchEventType::TAP && ev.type != TouchEventType::DRAG_END) return;
         if (RECT_SET_WIFI.contains(ev.x, ev.y)) {
             if (g_btSpeakerMode) switchToWifiMode();
             runSetupPortal(tft, g_cfg);
         } else if (RECT_SET_CAL.contains(ev.x, ev.y)) {
             runTouchCalibration(tft);
+            uiSettingsDraw(tft, g_cfg);
+        } else if (RECT_SET_THEME.contains(ev.x, ev.y)) {
+            g_cfg.lightTheme = !g_cfg.lightTheme;
+            uiSetLightTheme(g_cfg.lightTheme);
+            saveConfig(g_cfg);
             uiSettingsDraw(tft, g_cfg);
         } else if (RECT_SET_BACK.contains(ev.x, ev.y)) {
             enterPage(PageId::MENU);
@@ -280,29 +295,42 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
         return;
     }
 
-    // 4) Horizontal swipes
+    // 4) Interactive Bottom 9-Page Slider (Drag & Snap Release)
+    if (ev.type == TouchEventType::DRAG) {
+        const uint8_t idx = uiSliderIndexFromX(ev.x);
+        if (!g_draggingSlider || idx != g_sliderPreviewIdx) {
+            g_draggingSlider = true;
+            g_sliderPreviewIdx = idx;
+            drawBottomNav(tft, idx, true);
+        }
+        return;
+    }
+    if (ev.type == TouchEventType::DRAG_END) {
+        g_draggingSlider = false;
+        const uint8_t idx = uiSliderIndexFromX(ev.x);
+        enterPage(uiSliderPageAt(idx));
+        return;
+    }
+
+    // 5) Horizontal swipes across all 9 pages (News cycles headlines first)
     if (ev.type == TouchEventType::SWIPE_LEFT) {
         if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) stepNews(1, now);
-        else if (g_page == PageId::CLOCK) enterPage(PageId::MUSIC);
-        else if (g_page == PageId::MUSIC) enterPage(PageId::MARKET);
-        else if (g_page == PageId::MARKET) enterPage(PageId::MENU);
-        else enterPage(PageId::CLOCK);
+        else {
+            uint8_t cur = static_cast<uint8_t>(g_page);
+            if (cur >= SLIDER_PAGE_COUNT) cur = 0;
+            enterPage(uiSliderPageAt((cur + 1) % SLIDER_PAGE_COUNT));
+        }
         return;
     }
     if (ev.type == TouchEventType::SWIPE_RIGHT) {
         if (g_page == PageId::NEWS && g_news.valid && g_news.count > 1) stepNews(-1, now);
-        else if (g_page == PageId::MENU) enterPage(PageId::MARKET);
-        else if (g_page == PageId::MARKET) enterPage(PageId::MUSIC);
-        else if (g_page == PageId::MUSIC) enterPage(PageId::CLOCK);
-        else enterPage(PageId::MENU);
+        else {
+            uint8_t cur = static_cast<uint8_t>(g_page);
+            if (cur >= SLIDER_PAGE_COUNT) cur = 0;
+            enterPage(uiSliderPageAt((cur + SLIDER_PAGE_COUNT - 1) % SLIDER_PAGE_COUNT));
+        }
         return;
     }
-
-    // 5) Shared Bottom 4-Tab Nav Bar
-    if (RECT_NAV_CLOCK.contains(ev.x, ev.y))  { enterPage(PageId::CLOCK);  return; }
-    if (RECT_NAV_MUSIC.contains(ev.x, ev.y))  { enterPage(PageId::MUSIC);  return; }
-    if (RECT_NAV_MARKET.contains(ev.x, ev.y)) { enterPage(PageId::MARKET); return; }
-    if (RECT_NAV_MENU.contains(ev.x, ev.y))   { enterPage(PageId::MENU);   return; }
 
     // 6) Top bar contextual right pill
     if (RECT_TOP_PILL.contains(ev.x, ev.y)) {
@@ -346,6 +374,20 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
                 enterPage(targets[i]);
                 return;
             }
+        }
+        if (RECT_MENU_CYCLE.contains(ev.x, ev.y)) {
+            g_cfg.autoCycle = !g_cfg.autoCycle;
+            saveConfig(g_cfg);
+            g_autoCycleLastMs = now;
+            g_dirty = true;
+            return;
+        }
+        if (RECT_MENU_THEME.contains(ev.x, ev.y)) {
+            g_cfg.lightTheme = !g_cfg.lightTheme;
+            uiSetLightTheme(g_cfg.lightTheme);
+            saveConfig(g_cfg);
+            g_dirty = true;
+            return;
         }
     } else if (g_page == PageId::CLOCK) {
         if (ev.y >= SY(170) && ev.y < NAV_BAR_Y) {
@@ -465,12 +507,18 @@ void handleWebAction(const WebAction& act) {
         enterPage(static_cast<PageId>(act.value));
     } else if (act.type == WebActionType::APPLY_THEME) {
         if (g_page == PageId::CLOCK) enterPage(PageId::CLOCK);
+    } else if (act.type == WebActionType::APPLY_UI_THEME) {
+        uiSetLightTheme(g_cfg.lightTheme);
+        enterPage(g_page);
     } else if (act.type == WebActionType::APPLY_ROTATION) {
         tft.setRotation(g_cfg.rotation);
         enterPage(g_page);
     } else if (act.type == WebActionType::CONFIG_UPDATED) {
+        uiSetLightTheme(g_cfg.lightTheme);
         g_dirty = true;
-        if (g_page == PageId::CLOCK) enterPage(PageId::CLOCK);
+        if (g_page == PageId::CLOCK || g_page == PageId::MENU || g_page == PageId::SETTINGS) {
+            enterPage(g_page);
+        }
     } else if (act.type == WebActionType::REFRESH_ALL) {
         netRequestTimeSync();
         netRequestWeatherRefresh();
@@ -489,6 +537,8 @@ void handleWebAction(const WebAction& act) {
 void setup() {
     Serial.begin(115200);
     loadConfig(g_cfg);
+    uiSetLightTheme(g_cfg.lightTheme);
+    webUiSetOtaCallback(onOtaProgress);
 
     tft.init();
     tft.setRotation(g_cfg.rotation);
@@ -591,7 +641,18 @@ void loop() {
             }
         }
 
-        if (g_page == PageId::CLOCK) {
+        if (!g_draggingSlider && g_cfg.autoCycle && !g_btSpeakerMode && g_ringingIdx < 0 &&
+            (g_page == PageId::CLOCK || g_page == PageId::WEATHER || g_page == PageId::MARKET) &&
+            (now - g_autoCycleLastMs) >= AUTO_CYCLE_MS) {
+            g_autoCycleLastMs = now;
+            if (g_page == PageId::CLOCK) enterPage(PageId::WEATHER);
+            else if (g_page == PageId::WEATHER) enterPage(PageId::MARKET);
+            else enterPage(PageId::CLOCK);
+        }
+
+        if (g_draggingSlider) {
+            // Keep interactive bottom slider preview undisturbed while finger is dragging
+        } else if (g_page == PageId::CLOCK) {
             uiClockTick(tft, g_cfg, g_wx, fetching);
         } else if (g_page == PageId::WORLD) {
             struct tm ti{};
@@ -620,7 +681,7 @@ void loop() {
             }
         }
 
-        if (g_dirty) {
+        if (!g_draggingSlider && g_dirty) {
             g_dirty = false;
             switch (g_page) {
                 case PageId::WEATHER:  uiWeatherDraw(tft, g_cfg, g_wx, fetching); break;
@@ -630,7 +691,7 @@ void loop() {
                 case PageId::NEWS:     uiNewsDraw(tft, g_news, g_newsIdx, fetching); break;
                 case PageId::POMODORO: uiPomodoroDraw(tft, g_pomo, fetching); break;
                 case PageId::MUSIC:    uiMusicDraw(tft, g_music, audioBtSupported(), !g_btSpeakerMode && fetching); break;
-                case PageId::MENU:     uiMenuDraw(tft); break;
+                case PageId::MENU:     uiMenuDraw(tft, g_cfg); break;
                 case PageId::SETTINGS: uiSettingsDraw(tft, g_cfg); break;
                 case PageId::NIGHT:    uiNightDraw(tft, g_cfg, g_wx); break;
                 default: break;

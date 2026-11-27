@@ -40,7 +40,7 @@ void uiNewsDraw(TFT_eSPI& tft, const NewsData& news, uint8_t itemIndex, bool fet
         drawActionButton(tft, RECT_NEWS_TOPIC, "Konu Değiş", COL_ACCENT);
         tft.unloadFont();
 
-        drawBottomNav(tft, 3);
+        drawBottomNav(tft, 5);
         return;
     }
 
@@ -87,5 +87,5 @@ void uiNewsDraw(TFT_eSPI& tft, const NewsData& news, uint8_t itemIndex, bool fet
     drawActionButton(tft, RECT_NEWS_NEXT, "Sonraki >", COL_BORDER);
     tft.unloadFont();
 
-    drawBottomNav(tft, 3);
+    drawBottomNav(tft, 5);
 }

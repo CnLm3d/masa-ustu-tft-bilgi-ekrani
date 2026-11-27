@@ -56,7 +56,7 @@ void uiAlarmDraw(TFT_eSPI& tft, const DeviceConfig& cfg, int8_t editIdx, bool fe
         drawBtn(tft, RECT_AEDIT_DONE, "Tamam", COL_OK, COL_OK, COL_BG);
         tft.unloadFont();
 
-        drawBottomNav(tft, 3);
+        drawBottomNav(tft, 4);
         return;
     }
 
@@ -97,7 +97,7 @@ void uiAlarmDraw(TFT_eSPI& tft, const DeviceConfig& cfg, int8_t editIdx, bool fe
         tft.fillCircle(kx, ty + th / 2, SR(9), COL_TEXT);
     }
 
-    drawBottomNav(tft, 3);
+    drawBottomNav(tft, 4);
 }
 
 void uiAlarmRingingDraw(TFT_eSPI& tft, const AlarmItem& alarm, bool invertPhase) {

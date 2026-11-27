@@ -74,31 +74,63 @@ void drawTopBar(TFT_eSPI& tft, const char* title, const char* rightPill,
     }
 }
 
-void drawBottomNav(TFT_eSPI& tft, uint8_t activeTab) {
+void drawBottomNav(TFT_eSPI& tft, uint8_t activePageIdx, bool dragging) {
     tft.fillRect(0, NAV_BAR_Y - SY(3), SCREEN_W, SCREEN_H - NAV_BAR_Y + SY(3), COL_BG);
 
-    const char* const labels[4] = {"Saat", "Müzik", "Piyasa", "Menü"};
-    const int16_t xs[4] = {SX(4), SX(83), SX(162), SX(241)};
-    const int16_t tabW = SX(75);
-    const int16_t tabH = NAV_BAR_H;
+    static const char* const SLIDER_LABELS[SLIDER_PAGE_COUNT] = {
+        "Saat", "Hava", "Piyasa", "Dünya", "Alarm", "Haber", "Odak", "Müzik", "Menü"
+    };
+    const uint8_t idx = (activePageIdx < SLIDER_PAGE_COUNT) ? activePageIdx : (SLIDER_PAGE_COUNT - 1);
 
+    const int16_t tx = SX(6);
+    const int16_t ty = NAV_BAR_Y;
+    const int16_t tw = SCREEN_W - SX(12);
+    const int16_t th = NAV_BAR_H;
+    const uint16_t thumbCol = dragging ? COL_ACCENT_2 : COL_ACCENT;
+
+    // Slider track background
+    tft.fillRoundRect(tx, ty, tw, th, SR(9), COL_SURFACE);
+    tft.drawRoundRect(tx, ty, tw, th, SR(9), dragging ? COL_ACCENT_2 : COL_BORDER);
+
+    // Subtle horizontal rail & snap dots across the 9 pages
+    const int16_t thumbW = SX(76);
+    const int16_t travel = tw - 4 - thumbW;
+    const int16_t thumbX = tx + 2 + (travel * idx) / (SLIDER_PAGE_COUNT - 1);
+    const int16_t midY = ty + th / 2;
+
+    tft.drawFastHLine(tx + SX(12), midY, tw - SX(24), COL_BORDER);
+    if (thumbX > tx + SX(12)) {
+        tft.drawFastHLine(tx + SX(12), midY, thumbX - tx - SX(10), thumbCol);
+    }
+    for (uint8_t i = 0; i < SLIDER_PAGE_COUNT; ++i) {
+        const int16_t dx = tx + SX(14) + ((tw - SX(28)) * i) / (SLIDER_PAGE_COUNT - 1);
+        tft.fillCircle(dx, midY, SR(2), (i <= idx) ? thumbCol : COL_BORDER);
+    }
+
+    // Active draggable thumb pill showing current/preview page name
+    tft.fillRoundRect(thumbX, ty + 2, thumbW, th - 4, SR(7), thumbCol);
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(MC_DATUM);
-    for (uint8_t i = 0; i < 4; ++i) {
-        const bool active = (i == activeTab);
-        const uint16_t fillCol = active ? COL_ACCENT : COL_SURFACE;
-        const uint16_t borderCol = active ? COL_ACCENT : COL_BORDER;
-        const uint16_t textCol = active ? COL_TEXT : COL_MUTED;
-
-        tft.fillRoundRect(xs[i], NAV_BAR_Y, tabW, tabH, 6, fillCol);
-        tft.drawRoundRect(xs[i], NAV_BAR_Y, tabW, tabH, 6, borderCol);
-        tft.setTextColor(textCol, fillCol);
-        tft.drawString(labels[i], xs[i] + tabW / 2, NAV_BAR_Y + tabH / 2);
-    }
+    tft.setTextColor(COL_ON_ACCENT, thumbCol);
+    tft.drawString(SLIDER_LABELS[idx], thumbX + thumbW / 2, midY);
     tft.unloadFont();
 }
 
-void uiMenuDraw(TFT_eSPI& tft) {
+uint8_t uiSliderIndexFromX(int16_t px) {
+    const int16_t minX = SX(16);
+    const int16_t maxX = SCREEN_W - SX(16);
+    const int16_t clamped = constrain(px, minX, maxX);
+    const int32_t span = maxX - minX;
+    const int32_t num = static_cast<int32_t>(clamped - minX) * (SLIDER_PAGE_COUNT - 1) + (span / 2);
+    return static_cast<uint8_t>(constrain(num / span, 0L, static_cast<long>(SLIDER_PAGE_COUNT - 1)));
+}
+
+PageId uiSliderPageAt(uint8_t idx) {
+    if (idx >= SLIDER_PAGE_COUNT) idx = SLIDER_PAGE_COUNT - 1;
+    return static_cast<PageId>(idx);
+}
+
+void uiMenuDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
     tft.fillScreen(COL_BG);
     drawTopBar(tft, "Ana Menü", "Ayar", netGetRssi(), netIsWifiConnected(), netIsFetching());
 
@@ -106,7 +138,7 @@ void uiMenuDraw(TFT_eSPI& tft) {
         "Saat", "Hava", "Piyasa", "Dünya",
         "Alarm", "Haber", "Odak", "Müzik"
     };
-    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "♫"};
+    const char* const badges[8] = {"S", "H", "₺", "D", "A", "G", "O", "M"};
     const uint16_t cols[8] = {
         COL_ACCENT, COL_CYAN, COL_GOLD, COL_PURPLE,
         COL_ERR, COL_ACCENT_2, COL_OK, COL_SPOTIFY
@@ -120,18 +152,41 @@ void uiMenuDraw(TFT_eSPI& tft) {
         tft.drawRoundRect(r.x, r.y, r.w, r.h, 9, cols[i]);
 
         const int16_t icx = r.x + r.w / 2;
-        const int16_t icy = r.y + SY(28);
-        tft.drawCircle(icx, icy, SR(15), cols[i]);
-        tft.drawCircle(icx, icy, SR(14), cols[i]);
+        const int16_t icy = r.y + SY(23);
+        tft.drawCircle(icx, icy, SR(13), cols[i]);
+        tft.drawCircle(icx, icy, SR(12), cols[i]);
         tft.setTextColor(cols[i], COL_SURFACE);
-        tft.drawString(i == 7 ? "M" : badges[i], icx, icy);
+        tft.drawString(badges[i], icx, icy);
 
         tft.setTextColor(COL_TEXT, COL_SURFACE);
-        tft.drawString(labels[i], icx, r.y + SY(60));
+        tft.drawString(labels[i], icx, r.y + SY(51));
     }
+
+    // 45sn Cycle quick toggle
+    const uint16_t cycBg = cfg.autoCycle ? COL_OK : COL_SURFACE;
+    const uint16_t cycBd = cfg.autoCycle ? COL_OK : COL_BORDER;
+    const uint16_t cycFg = cfg.autoCycle ? COL_ON_ACCENT : COL_MUTED;
+    tft.fillRoundRect(RECT_MENU_CYCLE.x, RECT_MENU_CYCLE.y, RECT_MENU_CYCLE.w, RECT_MENU_CYCLE.h, 7, cycBg);
+    tft.drawRoundRect(RECT_MENU_CYCLE.x, RECT_MENU_CYCLE.y, RECT_MENU_CYCLE.w, RECT_MENU_CYCLE.h, 7, cycBd);
+    tft.setTextColor(cycFg, cycBg);
+    tft.drawString(cfg.autoCycle ? "45sn Döngü: AÇIK" : "45sn Döngü: KAPALI",
+                   RECT_MENU_CYCLE.x + RECT_MENU_CYCLE.w / 2,
+                   RECT_MENU_CYCLE.y + RECT_MENU_CYCLE.h / 2);
+
+    // Light / Dark Theme quick toggle
+    const uint16_t thBg = cfg.lightTheme ? COL_ACCENT_2 : COL_SURFACE;
+    const uint16_t thBd = cfg.lightTheme ? COL_ACCENT_2 : COL_ACCENT;
+    const uint16_t thFg = cfg.lightTheme ? COL_ON_ACCENT : COL_TEXT;
+    tft.fillRoundRect(RECT_MENU_THEME.x, RECT_MENU_THEME.y, RECT_MENU_THEME.w, RECT_MENU_THEME.h, 7, thBg);
+    tft.drawRoundRect(RECT_MENU_THEME.x, RECT_MENU_THEME.y, RECT_MENU_THEME.w, RECT_MENU_THEME.h, 7, thBd);
+    tft.setTextColor(thFg, thBg);
+    tft.drawString(cfg.lightTheme ? "Tema: Aydınlık" : "Tema: Karanlık",
+                   RECT_MENU_THEME.x + RECT_MENU_THEME.w / 2,
+                   RECT_MENU_THEME.y + RECT_MENU_THEME.h / 2);
+
     tft.unloadFont();
 
-    drawBottomNav(tft, 3);
+    drawBottomNav(tft, 8);
 }
 
 void uiSettingsDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
@@ -151,6 +206,12 @@ void uiSettingsDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
     tft.setTextColor(COL_TEXT, COL_SURFACE);
     tft.drawString("Dokunmatik Kalibrasyon", SCREEN_W / 2, RECT_SET_CAL.y + RECT_SET_CAL.h / 2);
 
+    tft.fillRoundRect(RECT_SET_THEME.x, RECT_SET_THEME.y, RECT_SET_THEME.w, RECT_SET_THEME.h, 9, COL_SURFACE);
+    tft.drawRoundRect(RECT_SET_THEME.x, RECT_SET_THEME.y, RECT_SET_THEME.w, RECT_SET_THEME.h, 9, COL_OK);
+    tft.setTextColor(COL_TEXT, COL_SURFACE);
+    tft.drawString(cfg.lightTheme ? "Tema: Aydınlık Mod" : "Tema: Karanlık Mod",
+                   SCREEN_W / 2, RECT_SET_THEME.y + RECT_SET_THEME.h / 2);
+
     tft.fillRoundRect(RECT_SET_BACK.x, RECT_SET_BACK.y, RECT_SET_BACK.w, RECT_SET_BACK.h, 9, COL_BG);
     tft.drawRoundRect(RECT_SET_BACK.x, RECT_SET_BACK.y, RECT_SET_BACK.w, RECT_SET_BACK.h, 9, COL_BORDER);
     tft.setTextColor(COL_MUTED, COL_BG);
@@ -161,9 +222,45 @@ void uiSettingsDraw(TFT_eSPI& tft, const DeviceConfig& cfg) {
     tft.setTextDatum(BC_DATUM);
     tft.setTextColor(COL_MUTED, COL_BG);
     char info[96];
-    snprintf(info, sizeof(info), "Ağ: %s • Şehir: %s", cfg.ssid, cfg.city);
-    tft.drawString(info, SCREEN_W / 2, SCREEN_H - SY(10));
+    snprintf(info, sizeof(info), "Ağ: %s • %s • Wi-Fi OTA", cfg.ssid, cfg.city);
+    tft.drawString(info, SCREEN_W / 2, SCREEN_H - SY(8));
     tft.unloadFont();
+}
+
+void uiDrawOtaScreen(TFT_eSPI& tft, uint8_t pct, const char* msg) {
+    tft.fillScreen(COL_BG);
+    tft.fillRoundRect(SX(20), SY(44), SCREEN_W - SX(40), SY(152), SR(12), COL_SURFACE);
+    tft.drawRoundRect(SX(20), SY(44), SCREEN_W - SX(40), SY(152), SR(12), COL_ACCENT);
+
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(TC_DATUM);
+    tft.setTextColor(COL_ACCENT, COL_SURFACE);
+    tft.drawString("Wi-Fi OTA Güncelleme", SCREEN_W / 2, SY(62));
+    tft.unloadFont();
+
+    char pbuf[16];
+    snprintf(pbuf, sizeof(pbuf), "%%%u", pct > 100 ? 100 : pct);
+    tft.loadFont(SegoeUIBold18TR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(COL_TEXT, COL_SURFACE);
+    tft.drawString(pbuf, SCREEN_W / 2, SY(108));
+    tft.unloadFont();
+
+    const int16_t bx = SX(40), by = SY(132), bw = SCREEN_W - SX(80), bh = SY(16);
+    tft.fillRoundRect(bx, by, bw, bh, SR(6), COL_BG);
+    tft.drawRoundRect(bx, by, bw, bh, SR(6), COL_BORDER);
+    const int16_t fw = static_cast<int16_t>((static_cast<int32_t>(bw - 4) * min<uint8_t>(pct, 100)) / 100);
+    if (fw > 2) {
+        tft.fillRoundRect(bx + 2, by + 2, fw, bh - 4, SR(4), COL_OK);
+    }
+
+    if (msg && msg[0]) {
+        tft.loadFont(SegoeUI14TR);
+        tft.setTextDatum(BC_DATUM);
+        tft.setTextColor(COL_MUTED, COL_SURFACE);
+        tft.drawString(msg, SCREEN_W / 2, SY(182));
+        tft.unloadFont();
+    }
 }
 
 void uiNightDraw(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx) {

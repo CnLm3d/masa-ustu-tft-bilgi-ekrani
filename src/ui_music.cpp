@@ -53,11 +53,11 @@ void uiMusicDraw(TFT_eSPI& tft, const MusicState& st, bool btSupported, bool fet
             btSupported ? (st.btActive ? "BT Aktif (I2S)" : "BT Hoparlör") : "C3 BT Yok",
             st.btActive ? COL_ACCENT : COL_SURFACE,
             st.btActive ? COL_ACCENT : COL_BORDER,
-            st.btActive ? COL_TEXT : COL_MUTED);
+            st.btActive ? COL_ON_ACCENT : COL_MUTED);
     drawBtn(tft, RECT_MUS_MODE_WIFI, "Spotify Wi-Fi",
             !st.btActive ? COL_SPOTIFY : COL_SURFACE,
             !st.btActive ? COL_SPOTIFY : COL_BORDER,
-            !st.btActive ? COL_BG : COL_MUTED);
+            !st.btActive ? COL_ON_ACCENT : COL_MUTED);
     tft.unloadFont();
 
     // Now-Playing Card
@@ -103,5 +103,5 @@ void uiMusicDraw(TFT_eSPI& tft, const MusicState& st, bool btSupported, bool fet
     drawBtn(tft, RECT_MUS_VOLUP, "Ses +", COL_SURFACE, COL_BORDER, COL_TEXT);
     tft.unloadFont();
 
-    drawBottomNav(tft, 1);
+    drawBottomNav(tft, 7);
 }

@@ -93,5 +93,5 @@ void uiPomodoroDraw(TFT_eSPI& tft, const PomodoroState& st, bool fetching) {
     drawPomoBtn(tft, RECT_POMO_PRESET, st.longPreset ? "Mod: 50 / 10 dk" : "Mod: 25 / 5 dk", COL_ACCENT);
     tft.unloadFont();
 
-    drawBottomNav(tft, 3);
+    drawBottomNav(tft, 6);
 }

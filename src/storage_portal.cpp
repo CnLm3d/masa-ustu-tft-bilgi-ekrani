@@ -157,6 +157,8 @@ void loadConfig(DeviceConfig& cfg) {
     cfg.clockTheme = prefs.getUChar("theme", 0);
     cfg.rotation = prefs.getUChar("rot", 1);
     cfg.nightEnabled = prefs.getBool("nightEn", false);
+    cfg.lightTheme = prefs.getBool("light", false);
+    cfg.autoCycle = prefs.getBool("cyc", false);
     cfg.nightStartHour = prefs.getUChar("nightS", 23);
     cfg.nightEndHour = prefs.getUChar("nightE", 7);
     cfg.buzzerPin = prefs.getUChar("buzz", DEFAULT_BUZZER_PIN);
@@ -227,6 +229,8 @@ void saveConfig(const DeviceConfig& cfg) {
     prefs.putUChar("theme", cfg.clockTheme);
     prefs.putUChar("rot", cfg.rotation);
     prefs.putBool("nightEn", cfg.nightEnabled);
+    prefs.putBool("light", cfg.lightTheme);
+    prefs.putBool("cyc", cfg.autoCycle);
     prefs.putUChar("nightS", cfg.nightStartHour);
     prefs.putUChar("nightE", cfg.nightEndHour);
     prefs.putUChar("buzz", cfg.buzzerPin);

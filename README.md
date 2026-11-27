@@ -1,10 +1,10 @@
-# ESP32 DeskHub v3.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı & Bluetooth/Spotify Ses İstasyonu
+# ESP32 DeskHub v4.0 — Dokunmatik Masaüstü TFT Bilgi Ekranı & Wi-Fi OTA / BT Ses İstasyonu
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-ESP32%20%7C%20ESP32--C3-00979D?style=for-the-badge&logo=espressif" alt="ESP32">
   <img src="https://img.shields.io/badge/Display-2.4%22%20ILI9341%20%7C%204%22%20Waveshare%20ILI9486-3893FF?style=for-the-badge" alt="Display">
   <img src="https://img.shields.io/badge/Audio-PCM5102A%20I2S%20%2B%20BT%20A2DP%20%2B%20Spotify-1DB954?style=for-the-badge" alt="Audio">
-  <img src="https://img.shields.io/badge/Web%20UI-deskhub.local-FFA400?style=for-the-badge" alt="Web UI">
+  <img src="https://img.shields.io/badge/OTA-Wi--Fi%20%26%20Web%20UI%20v4.0-FFA400?style=for-the-badge" alt="OTA">
   <img src="https://img.shields.io/badge/Framework-PlatformIO%20%7C%20Arduino-2DD264?style=for-the-badge" alt="PlatformIO">
 </p>
 
@@ -44,6 +44,11 @@
 
 ### Yeni Menüler & Akıllı Araçlar
 
+- **Ana Menü & v4.0 Akıllı Kontroller:**
+  - **Altta İnteraktif 9 Sayfalık Sürgü (`Saat • Hava • Piyasa • Dünya • Alarm • Haber • Odak • Müzik • Menü`):** Parmağı sürükleyerek anlık önizleme ve bırakınca doğrudan o sayfaya geçiş (veya ray üzerine dokunma).
+  - **Aydınlık & Karanlık Tema:** Ana Menü, Ayarlar ve Web UI (`deskhub.local`) üzerinden hem ekran arayüzünü hem Web UI panelini anlık `Karanlık` / `Aydınlık` moda geçirme (NVS'e kaydedilir).
+  - **45 sn Otomatik Döngü (`Saat → Hava Durumu → Piyasa`):** Ana Menü veya Web UI'dan tek dokunuşla açılıp kapanır; 45 saniyede bir saat, hava ve piyasa arasında otomatik döner (ekrana dokunulduğunda sayaç sıfırlanır, diğer sayfalarda bekler).
+  - **Wi-Fi ile Güncelleme (OTA):** `deskhub.local` Web UI üzerinden tarayıcıdan `.bin` yükleme (`/api/ota`) ve PlatformIO `ArduinoOTA` (`--upload-port deskhub.local`) desteği.
 - **Müzik, Bluetooth Hoparlör & Spotify:**
   - **Bluetooth A2DP Hoparlör Modu (`PCM5102A I2S DAC`):** ESP32 Classic hedeflerinde (`esp32dev`, `esp32dev_4inch`) telefonunuzdan `ESP32-DeskHub` adıyla doğrudan ses akışı, AVRCP şarkı/sanatçı bilgisi, `<|`, `Oynat/Duraklat`, `|>`, ses kıs/aç ve canlı 16 segment stereo VU metre. *(ESP32 RAM sınırları gereği BT Hoparlör modunda Wi-Fi geçici kapatılır; `Wi-Fi` / `Spotify Wi-Fi` butonuna dokununca anında Wi-Fi moduna dönülür.)*
   - **Spotify Wi-Fi Kontrolü:** Web UI üzerinden opsiyonel `Client ID`, `Client Secret` ve `Refresh Token` girildiğinde Wi-Fi modunda çalan parçayı, ilerleme çubuğunu ve uzaktan oynatma/ses kontrollerini sunar.
@@ -172,7 +177,7 @@ Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'
 
 1. **İlk Kalibrasyon:** Cihaz ilk açılışta 4 köşe dokunmatik kalibrasyonu ister. Oklara sırayla dokunduğunuzda kalibrasyon NVS belleğe kaydedilir.
 2. **Wi-Fi Kurulumu:** Kayıtlı ağ yoksa cihaz **`ESP32-DeskHub`** adlı şifresiz Wi-Fi ağı açar. Bağlanıp **`http://192.168.4.1`** adresinden Wi-Fi ve şehrinizi kaydedin.
-3. **Alt Sekme Çubuğu (`Saat | Müzik | Piyasa | Menü`):** Tek dokunuşla ana sayfalara geçiş; sağa/sola kaydırma ile sayfalar veya haberler arasında gezinme. Menü ekranındayken sağ üst **`[Ayar]`** pill'i ile Ayarlar açılır.
+3. **Alt İnteraktif Sayfa Sürgüsü (`Saat ↔ Menü`):** Alt çubuktaki sürgüyü sağa/sola kaydırıp bırakarak veya noktalara dokunarak 9 ana sayfanın tamamına (`Saat`, `Hava`, `Piyasa`, `Dünya`, `Alarm`, `Haber`, `Odak`, `Müzik`, `Menü`) anında geçin. Menü ekranındayken **`45sn Döngü`**, **`Tema: Aydınlık/Karanlık`** ve sağ üst **`[Ayar]`** butonlarına erişebilirsiniz.
 4. **Saat Ekranı Kısayolları:**
    - Sağ üst **`[Tema]`** butonu → 7 saat teması arasında geçiş
    - Dakika tarafına dokunma → aktif temanın animasyon demosu (Yaprak dönüş / Mario zıplama-vuruş / Tetris düşüş)
@@ -185,10 +190,12 @@ Waveshare 4" RPi LCD (A) ekranın **26-pin GPIO konnektöründen** ESP32 DevKit'
 
 | Uç Nokta | Metot | Açıklama |
 |---|---|---|
-| `/` | `GET` | Tek sayfalık karanlık tema Web UI |
-| `/api/state` | `GET` | Tema, sayfa, alarmlar, dünya saatleri, piyasa ve RAM/RSSI JSON |
+| `/` | `GET` | Tek sayfalık Aydınlık/Karanlık uyumlu Web UI |
+| `/api/state` | `GET` | Tema, aydınlık/karanlık, döngü, OTA durumu, sayfa, alarmlar, dünya saatleri ve piyasa JSON |
 | `/api/theme?id=0..6` | `POST` | Saat temasını anlık değiştirir ve NVS'e kaydeder |
-| `/api/page?id=0..9` | `POST` | Ekrandaki aktif sayfayı değiştirir |
+| `/api/page?id=0..10` | `POST` | Ekrandaki aktif sayfayı değiştirir |
+| `/api/ui?light=0\|1&cyc=0\|1` | `POST` | Aydınlık/Karanlık tema ve 45 sn döngü modunu anlık açar/kapatır |
+| `/api/ota` | `POST` | Tarayıcıdan multipart `.bin` firmware yükleyerek Wi-Fi OTA günceller (`ota_nofs_4MB.csv`) |
 | `/api/config` | `POST` | Şehir, koordinat, haber, alarmlar, dünya saatleri, gece modu, yön ve buzzer kaydı |
 | `/api/action?cmd=...` | `POST` | `refresh`, `calibrate`, `portal`, `restart` komutları |
 
@@ -212,7 +219,24 @@ Desteksiz (support-free) basılabilen, `112×66×44 mm` boyutlu, `68×37 mm` (`7
 
 ## Derleme ve Yükleme (PlatformIO)
 
-Proje **4 MB Flash** üzerinde **`huge_app.csv`** (3 MB uygulama bölümü) kullanır.
+Proje **4 MB Flash** üzerinde **iki farklı partisyon profili** sunar:
+
+| Ortam (`env`) | Ekran & İşlemci | Wi-Fi OTA | BT A2DP Hoparlör | Partisyon |
+|---|---|---|---|---|
+| `esp32dev` | 2.4" `320×240` ILI9341 (`ESP32`) | Açık (`Web + ArduinoOTA`) | Kapalı | `ota_nofs_4MB.csv` |
+| `esp32dev_4inch` | Waveshare 4" `480×320` ILI9486 (`ESP32`) | Açık (`Web + ArduinoOTA`) | Kapalı | `ota_nofs_4MB.csv` |
+| `esp32c3` | 2.4" `320×240` ILI9341 (`ESP32-C3`) | Açık (`Web + ArduinoOTA`) | Yok | `ota_nofs_4MB.csv` |
+| `esp32dev_bt` | 2.4" `320×240` ILI9341 (`ESP32`) | Kapalı | Açık (`PCM5102A`) | `huge_app.csv` |
+| `esp32dev_4inch_bt` | Waveshare 4" `480×320` ILI9486 (`ESP32`) | Kapalı | Açık (`PCM5102A`) | `huge_app.csv` |
+
+*(Not: 4 MB cihazda Wi-Fi OTA özelliğini aktifleştirmek için yeni `ota_nofs_4MB.csv` partisyon tablosunun **ilk seferlik** USB üzerinden yüklenmesi gerekir; sonrasındaki tüm güncellemeler `http://deskhub.local` veya `--upload-port deskhub.local` üzerinden kablosuz yapılabilir.)*
+
+**Wi-Fi OTA Yükleme Örneği (`esp32dev` veya `esp32dev_4inch`):**
+```powershell
+pio run -e esp32dev -t upload --upload-port deskhub.local
+```
+
+**USB İlk Kurulum / Klasik Yükleme:**
 
 **Waveshare 4" (`480×320`, `ILI9486`) + ESP32 DevKit (`esp32dev_4inch`):**
 ```powershell

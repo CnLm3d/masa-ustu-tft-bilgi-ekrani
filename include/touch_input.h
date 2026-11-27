@@ -6,7 +6,9 @@ enum class TouchEventType : uint8_t {
     NONE = 0,
     TAP,
     SWIPE_LEFT,
-    SWIPE_RIGHT
+    SWIPE_RIGHT,
+    DRAG,
+    DRAG_END
 };
 
 struct TouchEvent {

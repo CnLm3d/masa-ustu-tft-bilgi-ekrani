@@ -5,10 +5,12 @@
 
 namespace {
 bool g_touching = false;
+bool g_sliderDrag = false;
 int16_t g_startX = 0;
 int16_t g_startY = 0;
 int16_t g_lastX  = 0;
 int16_t g_lastY  = 0;
+int16_t g_lastDragX = -999;
 uint32_t g_lastTouchMs   = 0;
 uint32_t g_cooldownEndMs = 0;
 } // namespace
@@ -20,7 +22,7 @@ bool touchIsPressedNow(TFT_eSPI& tft) {
 
 TouchEvent touchPoll(TFT_eSPI& tft) {
     const uint32_t now = millis();
-    if (now < g_cooldownEndMs) {
+    if (!g_sliderDrag && now < g_cooldownEndMs) {
         return {TouchEventType::NONE, 0, 0};
     }
 
@@ -34,17 +36,35 @@ TouchEvent touchPoll(TFT_eSPI& tft) {
             g_touching = true;
             g_startX = px;
             g_startY = py;
+            g_lastX = px;
+            g_lastY = py;
+            g_lastTouchMs = now;
+            if (py >= (NAV_BAR_Y - SY(10))) {
+                g_sliderDrag = true;
+                g_lastDragX = px;
+                return {TouchEventType::DRAG, px, py};
+            }
+        } else {
+            g_lastX = px;
+            g_lastY = py;
+            g_lastTouchMs = now;
+            if (g_sliderDrag && abs(px - g_lastDragX) >= SX(4)) {
+                g_lastDragX = px;
+                return {TouchEventType::DRAG, px, py};
+            }
         }
-        g_lastX = px;
-        g_lastY = py;
-        g_lastTouchMs = now;
         return {TouchEventType::NONE, 0, 0};
     }
 
     if (g_touching && (now - g_lastTouchMs) >= 45) {
         g_touching = false;
-        g_cooldownEndMs = now + TOUCH_COOLDOWN_MS;
+        if (g_sliderDrag) {
+            g_sliderDrag = false;
+            g_cooldownEndMs = now + 90;
+            return {TouchEventType::DRAG_END, g_lastX, g_lastY};
+        }
 
+        g_cooldownEndMs = now + TOUCH_COOLDOWN_MS;
         const int16_t dx = g_lastX - g_startX;
         const int16_t dy = g_lastY - g_startY;
         if (abs(dx) >= SWIPE_MIN_PX && abs(dx) * 10 > abs(dy) * 13) {

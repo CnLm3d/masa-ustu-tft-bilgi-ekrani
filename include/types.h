@@ -60,6 +60,8 @@ struct DeviceConfig {
     uint8_t clockTheme;
     uint8_t rotation; // 1 (landscape) or 3 (180 deg)
     bool nightEnabled;
+    bool lightTheme;
+    bool autoCycle;
     uint8_t nightStartHour;
     uint8_t nightEndHour;
     uint8_t buzzerPin;
