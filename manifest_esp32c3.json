@@ -1,0 +1,16 @@
+{
+  "name": "ESP32 DeskHub v5.0.1 (ESP32-C3 Mini 2.4\" ILI9341)",
+  "version": "5.0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        {
+          "path": "firmware/esp32_deskhub_v5.0.1_esp32c3_2.4inch_FULL_USB_0x0.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

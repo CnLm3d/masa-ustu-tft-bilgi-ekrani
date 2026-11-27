@@ -1,0 +1,16 @@
+{
+  "name": "ESP32 DeskHub v5.0.1 (2.4\" ILI9341)",
+  "version": "5.0.1",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/esp32_deskhub_v5.0.1_esp32dev_2.4inch_FULL_USB_0x0.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}
