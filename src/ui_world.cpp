@@ -42,7 +42,7 @@ void uiWorldDraw(TFT_eSPI& tft, const DeviceConfig& cfg, bool fetching) {
         gmtime_r(&cityTime, &ct);
 
         const bool isDay = timeValid ? (ct.tm_hour >= 6 && ct.tm_hour < 19) : true;
-        tft.fillCircle(x + cw - SX(16), y + SY(15), SR(5), isDay ? COL_ACCENT_2 : 0x9DDF);
+        tft.fillCircle(x + cw - SX(16), y + SY(15), SR(5), isDay ? COL_ACCENT_2 : (uiIsLightTheme() ? COL_ACCENT : 0x9DDF));
 
         tft.loadFont(SegoeUIBold18TR);
         tft.setTextDatum(TL_DATUM);

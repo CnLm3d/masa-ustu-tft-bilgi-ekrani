@@ -292,26 +292,32 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     getClockVals(ti, valid, d, sec, dayKey);
     const bool wifiOk = netIsWifiConnected();
     const int16_t xs[4] = {SX(22), SX(74), SX(138), SX(190)};
-    constexpr uint16_t dimCol = 0x1105;
+    const bool light = uiIsLightTheme();
+    const uint16_t scrBg  = light ? COL_BG : 0x0042;
+    const uint16_t panBg  = light ? COL_SURFACE : 0x0863;
+    const uint16_t panBd  = light ? COL_BORDER : 0x1967;
+    const uint16_t dimCol = light ? 0xDEDB : 0x1105;
+    const uint16_t digCol = light ? COL_TEXT : COL_CYAN;
+    const uint16_t secCol = light ? COL_ACCENT : COL_ACCENT;
 
     if (forceFull) {
-        tft.fillScreen(0x0042);
+        tft.fillScreen(scrBg);
         drawTopBar(tft, "Dijital 7-Segment", "Tema", netGetRssi(), wifiOk, fetching);
-        tft.fillRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, 0x0863);
-        tft.drawRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, 0x1967);
+        tft.fillRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, panBg);
+        tft.drawRoundRect(SX(10), SY(32), SCREEN_W - SX(20), SY(130), 10, panBd);
         tft.loadFont(SegoeUI14TR);
         tft.setTextDatum(MC_DATUM);
-        tft.setTextColor(COL_MUTED, 0x0863);
+        tft.setTextColor(COL_MUTED, panBg);
         tft.drawString("SN", SX(274), SY(62));
         tft.unloadFont();
         for (int i = 0; i < 4; ++i) {
-            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], COL_CYAN, dimCol);
+            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], digCol, dimCol);
             g_prevDigits[i] = d[i];
         }
-        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, COL_ACCENT, dimCol);
-        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, COL_ACCENT, dimCol);
-        tft.fillRect(SX(124), SY(72), SX(6), SY(7), COL_CYAN);
-        tft.fillRect(SX(124), SY(102), SX(6), SY(7), COL_CYAN);
+        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, secCol, dimCol);
+        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, secCol, dimCol);
+        tft.fillRect(SX(124), SY(72), SX(6), SY(7), digCol);
+        tft.fillRect(SX(124), SY(102), SX(6), SY(7), digCol);
         drawBottomNav(tft, 0);
         g_prevSec = sec;
         g_prevDay = -999;
@@ -320,14 +326,14 @@ void tickDigital(TFT_eSPI& tft, const DeviceConfig& cfg, const WeatherData& wx,
     for (int i = 0; i < 4; ++i) {
         if (d[i] != g_prevDigits[i]) {
             g_prevDigits[i] = d[i];
-            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], COL_CYAN, dimCol);
+            draw7SegDigit(tft, xs[i], SY(48), SX(42), SY(86), SR(7), d[i], digCol, dimCol);
         }
     }
     if (sec != g_prevSec) {
         g_prevSec = sec;
-        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, COL_ACCENT, dimCol);
-        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, COL_ACCENT, dimCol);
-        const uint16_t cc = (sec % 2 == 0) ? COL_CYAN : dimCol;
+        draw7SegDigit(tft, SX(248), SY(86), SX(24), SY(48), SR(4), sec / 10, secCol, dimCol);
+        draw7SegDigit(tft, SX(278), SY(86), SX(24), SY(48), SR(4), sec % 10, secCol, dimCol);
+        const uint16_t cc = (sec % 2 == 0) ? digCol : dimCol;
         tft.fillRect(SX(124), SY(72), SX(6), SY(7), cc);
         tft.fillRect(SX(124), SY(102), SX(6), SY(7), cc);
     }
@@ -398,7 +404,7 @@ void drawDialContents(Target& dst, int16_t cx, int16_t cy, bool isPatek, const s
     if (!isPatek) {
         dst.fillCircle(cx, cy, r + SR(6), 0x9CF3);
         dst.fillCircle(cx, cy, r, 0x09C4);
-        dst.fillTriangle(cx, cy - r + SR(10), cx - SR(6), cy - r + 2, cx + SR(6), cy - r + 2, COL_GOLD);
+        dst.fillTriangle(cx, cy - r + SR(10), cx - SR(6), cy - r + 2, cx + SR(6), cy - r + 2, 0xF629);
         const int16_t dr = r - SR(12);
         dst.fillCircle(cx, cy, dr, 0x0861);
         dst.drawCircle(cx, cy, dr, 0xBCEB);
@@ -422,7 +428,7 @@ void drawDialContents(Target& dst, int16_t cx, int16_t cy, bool isPatek, const s
             }
         }
         dst.setTextDatum(MC_DATUM);
-        dst.setTextColor(COL_GOLD, 0x0861);
+        dst.setTextColor(0xF629, 0x0861);
         dst.drawString("ROLEX", cx, cy - SR(26), 2);
         dst.setTextColor(0x9D33, 0x0861);
         dst.drawString("OYSTER", cx, cy + SR(24), 1);
@@ -455,7 +461,7 @@ void drawDialContents(Target& dst, int16_t cx, int16_t cy, bool isPatek, const s
         }
         dst.fillCircle(cx, cy + SR(32), SR(14), 0x08A4);
         dst.drawCircle(cx, cy + SR(32), SR(14), 0x9D16);
-        dst.fillCircle(cx, cy + SR(30), SR(6), COL_GOLD);
+        dst.fillCircle(cx, cy + SR(30), SR(6), 0xF629);
         dst.fillCircle(cx + SR(3), cy + SR(28), SR(5), 0x08A4);
 
         dst.setTextDatum(MC_DATUM);

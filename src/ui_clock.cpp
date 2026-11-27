@@ -41,7 +41,7 @@ void renderFlipCardToTarget(Target& dst, int16_t ox, int16_t oy, const char* two
 
     dst.loadFont(SegoeUIBold88Digits);
     dst.setTextDatum(MC_DATUM);
-    dst.setTextColor(COL_TEXT);
+    dst.setTextColor(COL_TEXT, COL_CARD_TOP);
     dst.drawString(twoDigits, ox + CARD_W / 2, oy + CARD_H / 2 + 2);
     dst.unloadFont();
 

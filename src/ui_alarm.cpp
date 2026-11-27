@@ -53,7 +53,7 @@ void uiAlarmDraw(TFT_eSPI& tft, const DeviceConfig& cfg, int8_t editIdx, bool fe
 
         tft.loadFont(SegoeUI14TR);
         drawBtn(tft, RECT_AEDIT_REP, repeatLabel(a.repeatMode), COL_BG, COL_ACCENT_2, COL_ACCENT_2);
-        drawBtn(tft, RECT_AEDIT_DONE, "Tamam", COL_OK, COL_OK, COL_BG);
+        drawBtn(tft, RECT_AEDIT_DONE, "Tamam", COL_OK, COL_OK, COL_ON_ACCENT);
         tft.unloadFont();
 
         drawBottomNav(tft, 4);
@@ -91,10 +91,10 @@ void uiAlarmDraw(TFT_eSPI& tft, const DeviceConfig& cfg, int8_t editIdx, bool fe
         const int16_t ty = y + SY(13);
         const int16_t tw = SX(50);
         const int16_t th = SY(24);
-        const uint16_t pillCol = a.enabled ? COL_OK : 0x2945;
+        const uint16_t pillCol = a.enabled ? COL_OK : COL_BORDER;
         tft.fillRoundRect(tx, ty, tw, th, th / 2, pillCol);
         const int16_t kx = a.enabled ? (tx + tw - th / 2) : (tx + th / 2);
-        tft.fillCircle(kx, ty + th / 2, SR(9), COL_TEXT);
+        tft.fillCircle(kx, ty + th / 2, SR(9), COL_ON_ACCENT);
     }
 
     drawBottomNav(tft, 4);

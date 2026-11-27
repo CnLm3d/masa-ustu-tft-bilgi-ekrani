@@ -26,25 +26,25 @@ const UiPalette DARK_PALETTE = {
 };
 
 const UiPalette LIGHT_PALETTE = {
-    0xF7BE, // bg: #F3F6FA
-    0xFFFF, // surface: #FFFFFF
-    0xEF7D, // cardTop: #EBEFF5
-    0xE73C, // cardBot: #E3E7EF
-    0xC65A, // border: #C5CBD4
-    0x9CF3, // hinge: #9CA0A8
-    0x1B9F, // accent: #1B72FF
-    0xDC60, // accent2: #DB8C00
-    0x10A3, // text: #12171F
-    0x5AEB, // muted: #585D66
+    0xCE79, // bg: #C8CED8 cool daylight mist (makes white cards pop on TN LCD)
+    0xFFFF, // surface: #FFFFFF crisp white card
+    0xEF7D, // cardTop: #EBEFF5 silver-white upper card
+    0xDEDB, // cardBot: #DCDFE6 shaded lower card
+    0x6B4D, // border: #6A6D74 crisp slate border
+    0x2945, // hinge: #282B30 hinge slot
+    0x01D8, // accent: #003BC4 deep cobalt blue
+    0xA280, // accent2: #A05000 deep burnt amber
+    0x0000, // text: #000000 jet black ink
+    0x2965, // muted: #282C32 dark charcoal ink
     0xFFFF, // onAccent: #FFFFFF
-    0x1548, // ok: #14A842
-    0xDC40, // warn: #DB8800
-    0xD945, // err: #DA2828
-    0xB440, // gold: #B48800
-    0x04D5, // cyan: #009AA8
-    0x79BA, // purple: #7A34D0
+    0x0403, // ok: #008018 deep emerald green
+    0xB2A0, // warn: #B05400 deep orange
+    0xB000, // err: #B00000 deep crimson red
+    0x8AA0, // gold: #885400 deep bronze gold
+    0x0331, // cyan: #006688 deep teal
+    0x5092, // purple: #501090 deep violet
     0x9924, // nightRed: #9B2620
-    0x1548  // spotify: #14A842
+    0x0403  // spotify: #008018 deep green
 };
 } // namespace
 

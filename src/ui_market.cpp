@@ -27,7 +27,9 @@ void drawTickerRow(TFT_eSPI& tft, int16_t y, const char* name, const char* sub,
     tft.unloadFont();
 
     const bool neg = chgPct < -0.005f;
-    const uint16_t badgeBg = neg ? 0x30A2 : 0x1184;
+    const uint16_t badgeBg = uiIsLightTheme()
+        ? (neg ? 0xFDB6 : 0xC7B8)
+        : (neg ? 0x30A2 : 0x1184);
     const uint16_t badgeFg = neg ? COL_ERR : COL_OK;
     tft.fillRoundRect(SX(236), y + SY(7), SX(66), SY(17), 5, badgeBg);
 

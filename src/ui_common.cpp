@@ -378,8 +378,11 @@ uint8_t drawWrappedUtf8(TFT_eSPI& tft, const String& text, int16_t x, int16_t y,
 }
 
 void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCode, bool isDay) {
-    const uint16_t sunCol = 0xFEA0;
-    const uint16_t cloudCol = 0xDEFB;
+    const bool light = uiIsLightTheme();
+    const uint16_t sunCol = light ? 0xD3A0 : 0xFEA0;
+    const uint16_t sunCore = light ? 0xFC80 : 0xFFE8;
+    const uint16_t cloudCol = light ? 0x5AEB : 0xDEFB;
+    const uint16_t stormCloud = light ? 0x39E7 : 0x9CF3;
     const uint16_t rainCol = COL_ACCENT;
 
     if (wmoCode == 0) {
@@ -394,7 +397,7 @@ void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCo
                 tft.drawLine(x1, y1, x2, y2, sunCol);
             }
         } else {
-            tft.fillCircle(cx, cy, r * 48 / 100, 0xFFE8);
+            tft.fillCircle(cx, cy, r * 48 / 100, sunCore);
             tft.fillCircle(cx + r * 22 / 100, cy - r * 14 / 100, r * 40 / 100, COL_SURFACE);
         }
         return;
@@ -404,7 +407,7 @@ void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCo
         if (isDay) {
             tft.fillCircle(cx - r * 28 / 100, cy - r * 26 / 100, r * 30 / 100, sunCol);
         } else {
-            tft.fillCircle(cx - r * 28 / 100, cy - r * 26 / 100, r * 26 / 100, 0xFFE8);
+            tft.fillCircle(cx - r * 28 / 100, cy - r * 26 / 100, r * 26 / 100, sunCore);
         }
         drawCloudShape(tft, cx + r * 8 / 100, cy + r * 8 / 100, r * 78 / 100, cloudCol);
         return;
@@ -443,7 +446,7 @@ void drawWeatherIcon(TFT_eSPI& tft, int16_t cx, int16_t cy, int16_t r, int wmoCo
         return;
     }
 
-    drawCloudShape(tft, cx, cy - r * 18 / 100, r * 82 / 100, 0x9CF3);
+    drawCloudShape(tft, cx, cy - r * 18 / 100, r * 82 / 100, stormCloud);
     tft.fillTriangle(cx + 2, cy + r * 14 / 100,
                      cx - 7, cy + r * 42 / 100,
                      cx + 1, cy + r * 42 / 100, sunCol);
