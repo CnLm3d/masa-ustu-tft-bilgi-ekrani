@@ -8,6 +8,7 @@
 namespace {
 constexpr uint8_t NUM_LEDS = DEFAULT_LED_COUNT;
 constexpr size_t SYMBOLS_LEN = NUM_LEDS * 24;
+constexpr float TWO_PI_F = 6.2831853f;
 
 bool g_rmtReady = false;
 uint8_t g_pixels[NUM_LEDS][3]{}; // R, G, B
@@ -59,9 +60,7 @@ void flushPixels(bool force = false) {
     memcpy(g_lastPixels, g_pixels, sizeof(g_pixels));
     g_hasSentOnce = true;
 
-    // WS2812B uses GRB byte order, MSB first, 100ns RMT tick (10 MHz):
-    // 1 bit: 0.8us HIGH (8 ticks) + 0.45us LOW (4 ticks)
-    // 0 bit: 0.4us HIGH (4 ticks) + 0.85us LOW (8 ticks)
+    // WS2812B uses GRB byte order, MSB first, 100ns RMT tick (10 MHz)
     size_t s = 0;
     for (uint8_t i = 0; i < NUM_LEDS; ++i) {
         const uint8_t grb[3] = {g_pixels[i][1], g_pixels[i][0], g_pixels[i][2]};
@@ -97,11 +96,158 @@ void renderRadioVu(const RadioState& radio, uint8_t bri) {
     }
 }
 
-void renderNightAmber() {
+void renderNightAmberBreath(uint32_t nowMs) {
+    // Calm simultaneous breathing warm amber on all 5 LEDs (4s period)
+    const float wave = 0.5f * (1.0f - cosf((static_cast<float>(nowMs % 4000UL) / 4000.0f) * TWO_PI_F));
+    const uint8_t r = static_cast<uint8_t>(10 + wave * 58.0f);
+    const uint8_t g = static_cast<uint8_t>(3 + wave * 20.0f);
+    for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+        g_pixels[i][0] = r;
+        g_pixels[i][1] = g;
+        g_pixels[i][2] = 0;
+    }
+}
+
+void renderAlarmLightning(uint32_t nowMs, uint8_t bri) {
+    const uint32_t t = nowMs % 1100UL;
+    const uint8_t alertBri = max<uint8_t>(bri, 65);
     clearPixels();
-    // Direct subtle warm amber on outer L1 & L5 regardless of daytime brightness
-    g_pixels[0][0] = 18; g_pixels[0][1] = 6; g_pixels[0][2] = 0;
-    g_pixels[4][0] = 18; g_pixels[4][1] = 6; g_pixels[4][2] = 0;
+
+    if (t < 65) {
+        setPixel(0, 255, 255, 255, alertBri);
+        setPixel(1, 255, 255, 255, alertBri);
+        setPixel(2, 255, 255, 255, alertBri);
+        setPixel(3, 140, 200, 255, alertBri);
+        setPixel(4, 140, 200, 255, alertBri);
+    } else if (t < 125) {
+        fillAll(18, 8, 45, alertBri);
+    } else if (t < 205) {
+        fillAll(255, 255, 255, alertBri);
+    } else if (t < 350) {
+        const uint8_t phase = static_cast<uint8_t>((t / 35UL) & 1U);
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            if (((i + phase) & 1U) == 0) setPixel(i, 210, 235, 255, alertBri);
+            else setPixel(i, 255, 35, 35, alertBri);
+        }
+    } else if (t >= 420 && t < 485) {
+        setPixel(2, 190, 230, 255, alertBri);
+        setPixel(3, 190, 230, 255, alertBri);
+        setPixel(4, 190, 230, 255, alertBri);
+    } else if (t >= 485) {
+        const float decay = 1.0f - static_cast<float>(t - 485UL) / 615.0f;
+        const uint8_t rBri = static_cast<uint8_t>(alertBri * decay);
+        fillAll(70, 10, 40, rBri);
+    }
+}
+
+void renderWeatherEffect(uint32_t nowMs, const WeatherData& wx, uint8_t bri) {
+    const uint8_t baseBri = max<uint8_t>(12, bri);
+    if (!wx.valid) {
+        const float w = 0.25f + 0.75f * 0.5f * (1.0f - cosf((static_cast<float>(nowMs % 2000UL) / 2000.0f) * TWO_PI_F));
+        fillAll(45, 175, 255, max<uint8_t>(6, static_cast<uint8_t>(baseBri * w)));
+        return;
+    }
+
+    if (wx.wmoCode <= 1) {
+        if (wx.isDay) {
+            // Clear sunny day: warm golden sun shimmer radiating from center LED 2
+            for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+                const float dist = fabsf(static_cast<float>(i) - 2.0f);
+                const float shimmer = 0.45f + 0.55f * (0.5f + 0.5f * cosf(nowMs * 0.0045f - dist * 0.9f));
+                setPixel(i, 255, 185, 22, max<uint8_t>(8, static_cast<uint8_t>(baseBri * shimmer)));
+            }
+        } else {
+            // Clear night: calm moonlight silver-blue slow breath
+            const float w = 0.25f + 0.75f * 0.5f * (1.0f - cosf((static_cast<float>(nowMs % 3200UL) / 3200.0f) * TWO_PI_F));
+            fillAll(100, 145, 255, max<uint8_t>(6, static_cast<uint8_t>(baseBri * w)));
+        }
+        return;
+    }
+
+    if (wx.wmoCode <= 48) {
+        // Cloudy / Fog: drifting ice-blue cloud wave
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            const float wave = 0.30f + 0.70f * (0.5f + 0.5f * sinf(nowMs * 0.0025f - i * 0.75f));
+            setPixel(i, 130, 195, 255, max<uint8_t>(6, static_cast<uint8_t>(baseBri * wave)));
+        }
+        return;
+    }
+
+    if ((wx.wmoCode >= 71 && wx.wmoCode <= 77) || wx.wmoCode == 85 || wx.wmoCode == 86) {
+        // Snow: icy-white base + pure-white twinkling sparkles every ~180ms
+        const uint32_t step = nowMs / 180UL;
+        const uint8_t sparkA = static_cast<uint8_t>((step * 3UL + 1UL) % NUM_LEDS);
+        const uint8_t sparkB = static_cast<uint8_t>((step * 7UL + 3UL) % NUM_LEDS);
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            if (i == sparkA || i == sparkB) setPixel(i, 255, 255, 255, baseBri);
+            else setPixel(i, 140, 175, 220, max<uint8_t>(6, baseBri / 3));
+        }
+        return;
+    }
+
+    if (wx.wmoCode >= 95) {
+        // Thunderstorm: deep purple-indigo cloud + periodic lightning flashes every 1.8s
+        const uint32_t cyc = nowMs % 1800UL;
+        if (cyc < 60 || (cyc >= 120 && cyc < 185)) {
+            fillAll(240, 245, 255, max<uint8_t>(baseBri, 60));
+        } else {
+            fillAll(55, 18, 110, max<uint8_t>(8, baseBri / 2));
+        }
+        return;
+    }
+
+    // Rain / Showers: deep rain-blue base + falling cyan raindrop sparkles every ~150ms
+    const uint32_t rStep = nowMs / 150UL;
+    const uint8_t dropA = static_cast<uint8_t>(rStep % NUM_LEDS);
+    const uint8_t dropB = static_cast<uint8_t>((rStep + 2UL) % NUM_LEDS);
+    for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+        if (i == dropA || i == dropB) setPixel(i, 60, 210, 255, baseBri);
+        else setPixel(i, 12, 42, 145, max<uint8_t>(6, baseBri / 3));
+    }
+}
+
+void renderMarketEffect(uint32_t nowMs, const MarketData& mk, uint8_t focusRow, uint8_t bri) {
+    const uint8_t active = focusRow % 5;
+    const float chgs[5] = {mk.usdChg, mk.eurChg, mk.gbpChg, mk.gramChg, mk.onsChg};
+    const float chg = chgs[active];
+    const uint8_t mBri = max<uint8_t>(12, bri);
+
+    if (chg > 0.005f) {
+        // Rising trend: green comet sweeping LED 0 -> LED 4
+        const float pos = fmodf(static_cast<float>(nowMs) * 0.0055f, static_cast<float>(NUM_LEDS));
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            float d = fabsf(static_cast<float>(i) - pos);
+            if (d > 2.5f) d = static_cast<float>(NUM_LEDS) - d;
+            const float w = max(0.18f, 1.0f - d * 0.45f);
+            setPixel(i, 20, 240, 75, max<uint8_t>(5, static_cast<uint8_t>(mBri * w)));
+        }
+    } else if (chg < -0.005f) {
+        // Falling trend: red comet sweeping LED 4 -> LED 0
+        const float pos = static_cast<float>(NUM_LEDS - 1) - fmodf(static_cast<float>(nowMs) * 0.0055f, static_cast<float>(NUM_LEDS));
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            float d = fabsf(static_cast<float>(i) - pos);
+            if (d > 2.5f) d = static_cast<float>(NUM_LEDS) - d;
+            const float w = max(0.18f, 1.0f - d * 0.45f);
+            setPixel(i, 255, 25, 25, max<uint8_t>(5, static_cast<uint8_t>(mBri * w)));
+        }
+    } else {
+        // Neutral / TCMB static: soft gold strip with breathing active row index LED
+        const float pulse = 0.35f + 0.65f * 0.5f * (1.0f - cosf((static_cast<float>(nowMs % 1000UL) / 1000.0f) * TWO_PI_F));
+        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
+            if (i == active) setPixel(i, 255, 195, 30, max<uint8_t>(8, static_cast<uint8_t>(mBri * pulse)));
+            else setPixel(i, 180, 130, 15, max<uint8_t>(5, mBri / 5));
+        }
+    }
+}
+
+void renderClockBreath(uint32_t nowMs, uint32_t ledColor, uint8_t bri) {
+    // Exact 1-second smooth breathing wave across all 5 LEDs
+    const float phase = static_cast<float>(nowMs % 1000UL) / 1000.0f;
+    const float breath = 0.14f + 0.86f * 0.5f * (1.0f - cosf(phase * TWO_PI_F));
+    const uint8_t r = static_cast<uint8_t>((ledColor >> 16) & 0xFF);
+    const uint8_t g = static_cast<uint8_t>((ledColor >> 8) & 0xFF);
+    const uint8_t b = static_cast<uint8_t>(ledColor & 0xFF);
+    fillAll(r, g, b, max<uint8_t>(4, static_cast<uint8_t>(bri * breath)));
 }
 } // namespace
 
@@ -135,8 +281,8 @@ void ledShowOtaProgress(uint8_t pct) {
 
 void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRinging,
              const PomodoroState& pomo, const RadioState& radio,
-             const WeatherData& wx, const MarketData& mk, bool wifiOk) {
-    if ((nowMs - g_lastTickMs) < 40) return;
+             const WeatherData& wx, const MarketData& mk, uint8_t marketFocusRow, bool wifiOk) {
+    if ((nowMs - g_lastTickMs) < 25) return;
     g_lastTickMs = nowMs;
 
     // 1) Interactive rainbow test (2.6s)
@@ -160,14 +306,9 @@ void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRin
         return;
     }
 
-    // 3) Alarm ringing has top alert priority
+    // 3) Alarm ringing -> Lightning bolt flash
     if (alarmRinging) {
-        const bool phase = ((nowMs / 200) & 1U) != 0;
-        for (uint8_t i = 0; i < NUM_LEDS; ++i) {
-            const bool white = (((i & 1U) != 0) == phase);
-            if (white) setPixel(i, 255, 255, 255, max<uint8_t>(bri, 55));
-            else setPixel(i, 255, 16, 16, max<uint8_t>(bri, 55));
-        }
+        renderAlarmLightning(nowMs, bri);
         flushPixels();
         return;
     }
@@ -183,7 +324,7 @@ void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRin
         return;
     }
     if (mode == LedMode::NIGHT || page == PageId::NIGHT) {
-        renderNightAmber();
+        renderNightAmberBreath(nowMs);
         flushPixels();
         return;
     }
@@ -223,7 +364,7 @@ void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRin
         return;
     }
 
-    // 5c) Wi-Fi Disconnected warning pulse
+    // 5c) Wi-Fi Disconnected warning sweep
     if (!wifiOk) {
         clearPixels();
         const uint8_t pos = static_cast<uint8_t>((nowMs / 180) % (NUM_LEDS * 2 - 2));
@@ -233,36 +374,21 @@ void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRin
         return;
     }
 
-    // 5d) Market page sentiment
-    if (page == PageId::MARKET && mk.valid) {
-        const float avg = (mk.usdChg + mk.eurChg + mk.gramChg) / 3.0f;
-        if (avg > 0.08f) fillAll(28, 215, 95, max<uint8_t>(12, bri / 2));
-        else if (avg < -0.08f) fillAll(240, 45, 45, max<uint8_t>(12, bri / 2));
-        else fillAll(240, 195, 65, max<uint8_t>(12, bri / 2));
+    // 5d) Weather page -> Weather-reactive effects
+    if (page == PageId::WEATHER) {
+        renderWeatherEffect(nowMs, wx, bri);
         flushPixels();
         return;
     }
 
-    // 5e) General Weather / Ambient desk accent
-    const uint8_t amb = max<uint8_t>(10, bri / 2);
-    if (wx.valid) {
-        if (wx.wmoCode <= 1) {
-            fillAll(255, 190, 40, amb); // Clear / Sunny
-        } else if (wx.wmoCode <= 48) {
-            fillAll(120, 190, 255, amb); // Cloudy / Fog
-        } else if (wx.wmoCode >= 71 && wx.wmoCode <= 86 && wx.wmoCode != 80 && wx.wmoCode != 81 && wx.wmoCode != 82) {
-            fillAll(220, 235, 255, amb); // Snow
-        } else if (wx.wmoCode >= 95) {
-            fillAll(175, 70, 255, amb); // Storm
-        } else {
-            // Gentle rain wave across 5 LEDs
-            for (uint8_t i = 0; i < NUM_LEDS; ++i) {
-                const float w = 0.35f + 0.65f * (0.5f + 0.5f * sinf(nowMs * 0.004f - i * 0.9f));
-                setPixel(i, 30, 120, 255, max<uint8_t>(6, static_cast<uint8_t>(amb * w)));
-            }
-        }
-    } else {
-        fillAll(56, 147, 255, amb);
+    // 5e) Market page -> Row-by-row rise/fall effect
+    if (page == PageId::MARKET && mk.valid) {
+        renderMarketEffect(nowMs, mk, marketFocusRow, bri);
+        flushPixels();
+        return;
     }
+
+    // 5f) Clock screen & other idle screens -> 1-second breathing wave
+    renderClockBreath(nowMs, cfg.ledColor, bri);
     flushPixels();
 }

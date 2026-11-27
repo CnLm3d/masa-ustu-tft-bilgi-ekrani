@@ -49,6 +49,8 @@ bool g_webStarted = false;
 bool g_draggingSlider = false;
 uint8_t g_sliderPreviewIdx = 0;
 uint32_t g_autoCycleLastMs = 0;
+uint8_t g_marketFocusRow = 0;
+uint32_t g_marketFocusMs = 0;
 
 // Alarm ringing & snooze state
 int8_t g_ringingIdx = -1;
@@ -128,6 +130,9 @@ void enterPage(PageId nextPage) {
         g_lastWorldMin = -1;
     } else if (g_page == PageId::NIGHT) {
         g_lastNightMin = -1;
+    } else if (g_page == PageId::MARKET) {
+        g_marketFocusRow = 0;
+        g_marketFocusMs = millis();
     } else if (g_page == PageId::MUSIC) {
         radioCopyState(g_radio);
     }
@@ -384,6 +389,14 @@ void handleTouchEvent(const TouchEvent& ev, uint32_t now) {
             netRequestWeatherRefresh();
             g_dirty = true;
         }
+    } else if (g_page == PageId::MARKET && g_mk.valid) {
+        if (ev.y >= SY(31) && ev.y < SY(206)) {
+            const uint8_t tappedRow = static_cast<uint8_t>(constrain((ev.y - SY(31)) / SY(35), 0, 4));
+            const uint8_t prevRow = g_marketFocusRow;
+            g_marketFocusRow = tappedRow;
+            g_marketFocusMs = now;
+            uiMarketUpdateHighlight(tft, g_mk, prevRow, g_marketFocusRow);
+        }
     } else if (g_page == PageId::NEWS) {
         if (RECT_NEWS_PREV.contains(ev.x, ev.y)) {
             stepNews(-1, now);
@@ -535,7 +548,7 @@ void loop() {
     handleTouchEvent(touchPoll(tft), now);
 
     // 5x WS2812B LED status & visualizer update
-    ledTick(now, g_cfg, g_page, g_ringingIdx >= 0, g_pomo, g_radio, g_wx, g_mk, netIsWifiConnected());
+    ledTick(now, g_cfg, g_page, g_ringingIdx >= 0, g_pomo, g_radio, g_wx, g_mk, g_marketFocusRow, netIsWifiConnected());
 
     // Alarm ringing flash & PCM5102A chime / optional buzzer
     if (g_ringingIdx >= 0) {
@@ -623,6 +636,13 @@ void loop() {
                 g_newsIdx = (g_newsIdx + 1) % g_news.count;
                 g_dirty = true;
             }
+        } else if (g_page == PageId::MARKET && g_mk.valid && !g_dirty) {
+            if ((now - g_marketFocusMs) >= 2500UL) {
+                const uint8_t prev = g_marketFocusRow;
+                g_marketFocusRow = (g_marketFocusRow + 1) % 5;
+                g_marketFocusMs = now;
+                uiMarketUpdateHighlight(tft, g_mk, prev, g_marketFocusRow);
+            }
         } else if (g_page == PageId::MUSIC && g_radio.isPlaying && !g_dirty) {
             uiMusicDrawMeter(tft, g_radio);
         }
@@ -631,7 +651,7 @@ void loop() {
             g_dirty = false;
             switch (g_page) {
                 case PageId::WEATHER:  uiWeatherDraw(tft, g_cfg, g_wx, fetching); break;
-                case PageId::MARKET:   uiMarketDraw(tft, g_mk, fetching); break;
+                case PageId::MARKET:   uiMarketDraw(tft, g_mk, g_marketFocusRow, fetching); break;
                 case PageId::WORLD:    uiWorldDraw(tft, g_cfg, fetching); break;
                 case PageId::ALARM:    uiAlarmDraw(tft, g_cfg, g_alarmEditIdx, fetching); break;
                 case PageId::NEWS:     uiNewsDraw(tft, g_news, g_newsIdx, fetching); break;

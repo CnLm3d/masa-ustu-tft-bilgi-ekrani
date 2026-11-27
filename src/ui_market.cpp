@@ -7,17 +7,28 @@
 
 namespace {
 void drawTickerRow(TFT_eSPI& tft, int16_t y, const char* name, const char* sub,
-                   const char* valStr, uint16_t valCol, float chgPct) {
+                   const char* valStr, uint16_t valCol, float chgPct, bool highlighted) {
+    const int16_t rx = SX(10);
+    const int16_t rw = SCREEN_W - SX(20);
     const int16_t rh = SY(31);
-    tft.fillRoundRect(SX(10), y, SCREEN_W - SX(20), rh, 7, COL_SURFACE);
-    tft.drawRoundRect(SX(10), y, SCREEN_W - SX(20), rh, 7, COL_BORDER);
+    const uint16_t accentCol = (chgPct > 0.005f) ? COL_OK : ((chgPct < -0.005f) ? COL_ERR : COL_GOLD);
 
+    tft.fillRoundRect(rx, y, rw, rh, 7, COL_SURFACE);
+    if (highlighted) {
+        tft.drawRoundRect(rx, y, rw, rh, 7, accentCol);
+        tft.drawRoundRect(rx + 1, y + 1, rw - 2, rh - 2, 6, accentCol);
+        tft.fillRoundRect(rx + SX(3), y + SY(4), SX(4), rh - SY(8), 2, accentCol);
+    } else {
+        tft.drawRoundRect(rx, y, rw, rh, 7, COL_BORDER);
+    }
+
+    const int16_t tx = highlighted ? SX(22) : SX(18);
     tft.loadFont(SegoeUI14TR);
     tft.setTextDatum(TL_DATUM);
-    tft.setTextColor(COL_TEXT, COL_SURFACE);
-    tft.drawString(name, SX(18), y + SY(3));
+    tft.setTextColor(highlighted ? accentCol : COL_TEXT, COL_SURFACE);
+    tft.drawString(name, tx, y + SY(3));
     tft.setTextColor(COL_MUTED, COL_SURFACE);
-    tft.drawString(sub, SX(18), y + SY(17));
+    tft.drawString(sub, tx, y + SY(17));
     tft.unloadFont();
 
     tft.loadFont(SegoeUIBold18TR);
@@ -46,9 +57,35 @@ void drawTickerRow(TFT_eSPI& tft, int16_t y, const char* name, const char* sub,
     tft.drawString(chgBuf, SX(269), y + rh / 2);
     tft.unloadFont();
 }
+
+void drawRowByIndex(TFT_eSPI& tft, const MarketData& mk, uint8_t idx, bool highlighted) {
+    char valBuf[20];
+    switch (idx % 5) {
+        case 0:
+            snprintf(valBuf, sizeof(valBuf), "%.2f ₺", mk.usdTry);
+            drawTickerRow(tft, SY(31), "USD / TRY", "TCMB Satış", valBuf, COL_TEXT, mk.usdChg, highlighted);
+            break;
+        case 1:
+            snprintf(valBuf, sizeof(valBuf), "%.2f ₺", mk.eurTry);
+            drawTickerRow(tft, SY(66), "EUR / TRY", "TCMB Satış", valBuf, COL_TEXT, mk.eurChg, highlighted);
+            break;
+        case 2:
+            snprintf(valBuf, sizeof(valBuf), "%.2f ₺", mk.gbpTry);
+            drawTickerRow(tft, SY(101), "GBP / TRY", "TCMB Satış", valBuf, COL_TEXT, mk.gbpChg, highlighted);
+            break;
+        case 3:
+            snprintf(valBuf, sizeof(valBuf), "%.0f ₺", mk.gramAltinTry);
+            drawTickerRow(tft, SY(136), "GRAM ALTIN", "24 Ayar", valBuf, COL_GOLD, mk.gramChg, highlighted);
+            break;
+        default:
+            snprintf(valBuf, sizeof(valBuf), "%.0f $", mk.onsAltinUsd);
+            drawTickerRow(tft, SY(171), "ONS ALTIN", "XAU / USD", valBuf, COL_GOLD, mk.onsChg, highlighted);
+            break;
+    }
+}
 } // namespace
 
-void uiMarketDraw(TFT_eSPI& tft, const MarketData& mk, bool fetching) {
+void uiMarketDraw(TFT_eSPI& tft, const MarketData& mk, uint8_t focusRow, bool fetching) {
     tft.fillScreen(COL_BG);
     drawTopBar(tft, "Piyasa • TCMB & Altın", "Yenile", netGetRssi(), netIsWifiConnected(), fetching);
 
@@ -71,18 +108,20 @@ void uiMarketDraw(TFT_eSPI& tft, const MarketData& mk, bool fetching) {
         return;
     }
 
-    char vUsd[20], vEur[20], vGbp[20], vGram[20], vOns[20];
-    snprintf(vUsd, sizeof(vUsd), "%.2f ₺", mk.usdTry);
-    snprintf(vEur, sizeof(vEur), "%.2f ₺", mk.eurTry);
-    snprintf(vGbp, sizeof(vGbp), "%.2f ₺", mk.gbpTry);
-    snprintf(vGram, sizeof(vGram), "%.0f ₺", mk.gramAltinTry);
-    snprintf(vOns, sizeof(vOns), "%.0f $", mk.onsAltinUsd);
-
-    drawTickerRow(tft, SY(31),  "USD / TRY",  "TCMB Satış", vUsd,  COL_TEXT, mk.usdChg);
-    drawTickerRow(tft, SY(66),  "EUR / TRY",  "TCMB Satış", vEur,  COL_TEXT, mk.eurChg);
-    drawTickerRow(tft, SY(101), "GBP / TRY",  "TCMB Satış", vGbp,  COL_TEXT, mk.gbpChg);
-    drawTickerRow(tft, SY(136), "GRAM ALTIN", "24 Ayar",    vGram, COL_GOLD, mk.gramChg);
-    drawTickerRow(tft, SY(171), "ONS ALTIN",  "XAU / USD",  vOns,  COL_GOLD, mk.onsChg);
+    const uint8_t active = focusRow % 5;
+    for (uint8_t i = 0; i < 5; ++i) {
+        drawRowByIndex(tft, mk, i, i == active);
+    }
 
     drawBottomNav(tft, 2);
+}
+
+void uiMarketUpdateHighlight(TFT_eSPI& tft, const MarketData& mk, uint8_t prevRow, uint8_t newRow) {
+    if (!mk.valid) return;
+    prevRow %= 5;
+    newRow %= 5;
+    if (prevRow != newRow) {
+        drawRowByIndex(tft, mk, prevRow, false);
+    }
+    drawRowByIndex(tft, mk, newRow, true);
 }

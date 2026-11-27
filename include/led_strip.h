@@ -9,4 +9,4 @@ void ledTriggerTest();
 void ledShowOtaProgress(uint8_t pct);
 void ledTick(uint32_t nowMs, const DeviceConfig& cfg, PageId page, bool alarmRinging,
              const PomodoroState& pomo, const RadioState& radio,
-             const WeatherData& wx, const MarketData& mk, bool wifiOk);
+             const WeatherData& wx, const MarketData& mk, uint8_t marketFocusRow, bool wifiOk);
